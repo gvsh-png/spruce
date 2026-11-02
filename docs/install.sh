@@ -34,7 +34,7 @@ if pgrep -xq Spruce; then
   sleep 1
 fi
 
-say "Installing to $DEST…"
+say "Installing to ${DEST}…"
 rm -rf "$DEST/Spruce.app"
 ditto "$TMP/Spruce.app" "$DEST/Spruce.app"
 
