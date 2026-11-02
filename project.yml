@@ -1,0 +1,56 @@
+# Generate the Xcode project with:  xcodegen generate
+# The .xcodeproj is a build artifact; edit this file instead.
+name: ScreenshotRenamer
+options:
+  bundleIdPrefix: com.screenshotrenamer
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.6.0
+targets:
+  ScreenshotRenamer:
+    type: application
+    platform: macOS
+    sources:
+      - Sources
+      - Resources
+    dependencies:
+      - package: Sparkle
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: Spruce
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSUIElement: true # menu bar only, no Dock icon
+        LSApplicationCategoryType: public.app-category.utilities
+        NSDesktopFolderUsageDescription: Spruce watches this folder for new screenshots and names them.
+        NSDocumentsFolderUsageDescription: Spruce watches this folder for new screenshots and names them.
+        NSDownloadsFolderUsageDescription: Spruce watches this folder for new screenshots and names them.
+        # Sparkle auto-updates: the feed lives on GitHub Pages, downloads on GitHub Releases.
+        SUFeedURL: https://gvsh-png.github.io/spruce/appcast.xml
+        SUPublicEDKey: OSJ82rAI8Xkub5gI8wN3Qfc/hthnAoVyEEoO3Yica+Q=
+        SUEnableAutomaticChecks: true
+        SUScheduledCheckInterval: 86400 # once a day
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true # plain-HTTP Ollama on localhost
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.screenshotrenamer.app
+        PRODUCT_NAME: Spruce
+        # The bundle ID stays com.screenshotrenamer.app so existing settings, history, Keychain key
+        # and notification permission carry over. Change it only for the first public release.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-" # ad-hoc for local builds; use "Developer ID Application" for release
+        DEVELOPMENT_TEAM: ""
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
