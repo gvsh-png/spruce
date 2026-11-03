@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spruce Redact Demo</title>
+<style>
+  :root {
+    --pill: #000;
+    --success: #30d159;
+    --danger: #ff453a;
+    --keep: #ffd60a;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --mono: "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
+    --spring: cubic-bezier(.32, 1.25, .5, 1);
+    --calm: cubic-bezier(.25, .8, .3, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #0b0b0c; }
+  body { width: 800px; height: 500px; overflow: hidden; font-family: var(--font); -webkit-font-smoothing: antialiased; }
+  #stage {
+    position: relative; width: 800px; height: 500px; overflow: hidden;
+    background:
+      radial-gradient(120% 90% at 15% 110%, #6f9c8c 0%, transparent 55%),
+      radial-gradient(90% 80% at 95% 0%, #c9d8c6 0%, transparent 60%),
+      linear-gradient(160deg, #a9c3b6 0%, #7fa597 45%, #557d70 100%);
+  }
+  /* Menu bar */
+  .menubar {
+    position: absolute; left: 0; top: 0; width: 100%; height: 24px;
+    background: rgba(255,255,255,.28); backdrop-filter: blur(20px);
+    display: flex; align-items: center; padding: 0 14px; gap: 18px;
+    font-size: 12.5px; color: rgba(0,0,0,.82); font-weight: 500;
+  }
+  .menubar .apple { width: 13px; height: 13px; border-radius: 50%; background: rgba(0,0,0,.75); }
+  .menubar .right { margin-left: auto; display: flex; gap: 14px; align-items: center; font-weight: 500; }
+  .mark { width: 22px; height: 10px; border-radius: 6px; background: #000; position: relative; border: .5px solid rgba(255,255,255,.3); }
+  .mark::after { content: ""; position: absolute; right: 3px; top: 2.5px; width: 4px; height: 4px; border-radius: 50%; background: var(--success); }
+
+  /* The app window that gets captured */
+  .window {
+    position: absolute; left: 140px; top: 128px; width: 520px; height: 300px;
+    border-radius: 12px; overflow: hidden; background: #fff;
+    box-shadow: 0 22px 60px rgba(0,0,0,.28), 0 0 0 .5px rgba(0,0,0,.18);
+  }
+  .shot { width: 520px; height: 300px; background: #fff; display: flex; flex-direction: column; font-family: var(--font); }
+  .shot .bar { height: 36px; background: #f3f3f2; border-bottom: 1px solid #e4e4e2; display: flex; align-items: center; padding: 0 12px; gap: 7px; }
+  .shot .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .shot .title { margin-left: 14px; font-size: 12.5px; font-weight: 600; color: #333; }
+  .shot .body { display: flex; flex: 1; }
+  .shot .side { width: 118px; background: #2e3b36; color: rgba(255,255,255,.62); font-size: 11.5px; padding: 12px 10px; display: flex; flex-direction: column; gap: 7px; }
+  .shot .side b { color: #fff; font-weight: 600; }
+  .shot .side .on { background: rgba(255,255,255,.14); color: #fff; border-radius: 5px; padding: 2px 6px; margin: 0 -6px; }
+  .shot .msgs { flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 13px; }
+  .msg { display: flex; gap: 9px; }
+  .av { width: 28px; height: 28px; border-radius: 7px; flex: none; }
+  .who { font-size: 12px; font-weight: 700; color: #1d1d1f; }
+  .who span { font-weight: 400; color: #8a8a8e; font-size: 10.5px; margin-left: 5px; }
+  .txt { font-size: 12px; color: #2c2c2e; line-height: 1.5; margin-top: 1px; }
+  .s { border-radius: 3px; position: relative; white-space: nowrap; }
+  .code { font-family: var(--mono); font-size: 11px; background: #f2f2f0; border: 1px solid #e3e3e0; border-radius: 4px; padding: 0 4px; }
+  /* Redacted copy: a dark rounded box over exactly the sensitive words */
+  .redacted .s::after {
+    content: ""; position: absolute; left: -2px; right: -2px; top: -1px; bottom: -1px;
+    background: #212121; border-radius: 3px;
+    transform-origin: left center;
+  }
+  .peek .redacted .s::after { transform: scaleX(0); transition: transform .32s var(--calm); }
+  .peek.show .redacted .s::after { transform: scaleX(1); }
+  .peek.show .redacted .s:nth-of-type(1)::after { transition-delay: .15s; }
+  .peek.show .redacted .msg:nth-child(2) .s:nth-of-type(1)::after { transition-delay: .3s; }
+  .peek.show .redacted .msg:nth-child(2) .s:nth-of-type(2)::after { transition-delay: .45s; }
+
+  /* Screenshot flash */
+  .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+  .flash.go { animation: flash .45s ease-out; }
+  @keyframes flash { 0% { opacity: 0; } 15% { opacity: .55; } 100% { opacity: 0; } }
+
+  /* The island */
+  .island-wrap { position: absolute; top: 29px; left: 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+  .pill {
+    width: 160px; height: 46px; background: var(--pill); border-radius: 23px; overflow: hidden;
+    box-shadow: 0 5px 24px rgba(0,0,0,.35), inset 0 0 0 .5px rgba(255,255,255,.12);
+    opacity: 0; transform: translateY(-10px) scale(.94); transform-origin: top center;
+    transition: width .38s var(--spring), height .3s var(--spring), opacity .25s ease, transform .38s var(--spring);
+    padding: 0 14px; color: #fff;
+  }
+  .pill.open { width: 360px; opacity: 1; transform: none; }
+  .pill.open.wide { width: 412px; }
+  .pill.tools { height: 80px; }
+  .row { height: 46px; display: flex; align-items: center; gap: 8px; opacity: 0; transition: opacity .2s ease .08s; }
+  .pill.open .row { opacity: 1; }
+  .thumb { width: 48px; height: 30px; border-radius: 6px; overflow: hidden; flex: none; position: relative; background: rgba(128,128,128,.3); }
+  .thumb .shot, .peek .shot { transform-origin: top left; position: absolute; left: 0; top: 0; }
+  .thumb .shot { transform: scale(.0923); }
+  .thumb .layer { position: absolute; inset: 0; transition: opacity .25s ease; }
+  .thumb .after { opacity: 0; }
+  .thumb.redacted-now .after { opacity: 1; }
+  .status { font-size: 12px; color: rgba(255,255,255,.6); flex: 1; }
+  .partial { font-family: var(--mono); font-size: 12px; color: rgba(255,255,255,.75); flex: 1; white-space: nowrap; overflow: hidden; display: none; }
+  .name { font-family: var(--mono); font-size: 13px; color: #fff; flex: 1; white-space: nowrap; display: none; }
+  .name i { font-style: normal; color: rgba(255,255,255,.45); }
+  .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,.22); border-top-color: rgba(255,255,255,.8); animation: spin .8s linear infinite; flex: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .check { width: 16px; height: 16px; border-radius: 50%; background: var(--success); flex: none; display: none; position: relative; }
+  .check::after { content: ""; position: absolute; left: 5.3px; top: 2.6px; width: 4px; height: 8px; border: solid #000; border-width: 0 1.8px 1.8px 0; transform: rotate(45deg); }
+  .named .status, .named .spinner, .named .partial { display: none !important; }
+  .named .name, .named .check { display: block; }
+  .streaming .status { display: none; }
+  .streaming .partial { display: block; }
+
+  .toolrow { height: 34px; display: flex; align-items: flex-start; gap: 6px; padding-bottom: 6px;
+    opacity: 0; transform: translateY(-8px); filter: blur(3px); transition: opacity .3s var(--calm), transform .3s var(--spring), filter .3s ease; }
+  .pill.tools .toolrow { opacity: 1; transform: none; filter: none; }
+  .btn { font-size: 11px; font-weight: 500; color: #fff; padding: 4px 9px; border-radius: 999px; position: relative; white-space: nowrap;
+    background: rgba(255,255,255,.12); transition: background .2s ease, transform .22s var(--spring), box-shadow .2s ease; line-height: 1.25; }
+  .btn.keep { color: var(--keep); background: rgba(255,214,10,.12); }
+  .btn.del { color: var(--danger); background: rgba(255,69,58,.12); }
+  .btn.hover { background: rgba(255,255,255,.22); transform: scale(1.04); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.18); }
+  .btn.press { background: rgba(255,255,255,.32); transform: scale(.92); }
+  .btn .t { display: inline-block; transition: opacity .18s ease; }
+  .spacer { flex: 1; }
+  .redact-btn { display: none; }
+  .wide .redact-btn { display: inline-block; }
+
+  /* Peek */
+  .peek { width: 360px; height: 208px; border-radius: 10px; overflow: hidden; position: relative;
+    box-shadow: 0 6px 28px rgba(0,0,0,.4); opacity: 0; transform: translateY(-10px) scale(.92); transform-origin: top center;
+    transition: opacity .3s var(--calm), transform .32s var(--spring); }
+  .peek.show { opacity: 1; transform: none; }
+  .peek .shot { transform: scale(.6923); }
+
+  .cursor { position: absolute; left: 640px; top: 420px; width: 18px; height: 24px; z-index: 50; pointer-events: none;
+    transition: left .7s var(--calm), top .7s var(--calm), transform .12s ease; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.35)); }
+  .cursor.click { transform: scale(.85); }
+
+  .caption { position: absolute; left: 0; right: 0; bottom: 22px; text-align: center; font-size: 13px; font-weight: 500; color: rgba(255,255,255,.95);
+    text-shadow: 0 1px 8px rgba(0,0,0,.35); opacity: 0; transform: translateY(6px); transition: opacity .5s ease, transform .5s var(--calm); letter-spacing: .1px; }
+  .caption.show { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="menubar">
+    <div class="apple"></div><span style="font-weight:700">Chat</span><span>File</span><span>Edit</span><span>View</span>
+    <div class="right"><div class="mark"></div><span>Tue 3 Nov&nbsp; 10:42</span></div>
+  </div>
+
+  <div class="window" id="window"></div>
+  <div class="flash" id="flash"></div>
+
+  <div class="island-wrap">
+    <div class="pill" id="pill">
+      <div class="row" id="row">
+        <div class="thumb" id="thumb">
+          <div class="layer before"></div>
+          <div class="layer after"></div>
+        </div>
+        <div class="status">Naming…</div>
+        <div class="partial" id="partial"></div>
+        <div class="name">chat-alice-staging-key-deploys<i>.png</i></div>
+        <div class="spinner"></div>
+        <div class="check"></div>
+      </div>
+      <div class="toolrow">
+        <div class="btn keep">Keep</div>
+        <div class="btn" id="copy"><span class="t">Copy</span></div>
+        <div class="btn">Copy Text</div>
+        <div class="btn redact-btn" id="redact"><span class="t">Redact 3</span></div>
+        <div class="btn">Move</div>
+        <div class="spacer"></div>
+        <div class="btn del">Delete</div>
+      </div>
+    </div>
+    <div class="peek" id="peek"></div>
+  </div>
+
+  <svg class="cursor" id="cursor" viewBox="0 0 18 24"><path d="M1.5 1.5 L1.5 19 L6 14.8 L9.2 22 L12 20.8 L8.9 13.8 L15 13.8 Z" fill="#000" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>
+  <div class="caption" id="caption">Emails, numbers and keys covered in place, then copied. Nothing leaves your Mac.</div>
+</div>
+
+<script>
+  // One chat window, reused for the live window, the pill's thumbnail and Peek.
+  function shot(redacted) {
+    return `<div class="shot${redacted ? ' redacted' : ''}">
+      <div class="bar"><div class="dot" style="background:#ff5f57"></div><div class="dot" style="background:#febc2e"></div><div class="dot" style="background:#28c840"></div><div class="title"># deploys</div></div>
+      <div class="body">
+        <div class="side"><b>Northwind</b><span># general</span><span class="on"># deploys</span><span># design</span><span># random</span></div>
+        <div class="msgs">
+          <div class="msg"><div class="av" style="background:#e8a87c"></div><div><div class="who">Alice Jensen<span>10:41</span></div>
+            <div class="txt">New staging key, rotate yours today:<br><span class="code"><span class="s">sk-proj-a1B2c3D4e5F6g7H8i9J0kLmN</span></span></div></div></div>
+          <div class="msg"><div class="av" style="background:#85b7a5"></div><div><div class="who">Alice Jensen<span>10:41</span></div>
+            <div class="txt">If the deploy breaks, mail <span class="s">alice.jensen@northwind.io</span><br>or call <span class="s">+47 912 34 567</span>.</div></div></div>
+          <div class="msg"><div class="av" style="background:#9aa7d6"></div><div><div class="who">Sam Ortiz<span>10:42</span></div>
+            <div class="txt">Thanks! Filing the bug now.</div></div></div>
+        </div>
+      </div></div>`;
+  }
+  const $ = id => document.getElementById(id);
+  $('window').innerHTML = shot(false);
+  document.querySelector('.thumb .before').innerHTML = shot(false);
+  document.querySelector('.thumb .after').innerHTML = shot(true);
+  $('peek').innerHTML = shot(true);
+
+  const pill = $('pill'), row = $('row'), cursor = $('cursor');
+  function move(x, y) { cursor.style.left = x + 'px'; cursor.style.top = y + 'px'; }
+  function setText(el, text) {
+    const t = el.querySelector('.t');
+    t.style.opacity = 0;
+    setTimeout(() => { t.textContent = text; t.style.opacity = 1; }, 120);
+  }
+
+  const words = ['chat', 'chat-alice', 'chat-alice-staging', 'chat-alice-staging-key'];
+  const steps = [
+    [250,  () => $('flash').classList.add('go')],                       // ⇧⌘4
+    [700,  () => pill.classList.add('open')],                           // drops in: "Naming…"
+    [1150, () => { row.classList.add('streaming'); $('partial').textContent = words[0]; }],
+    [1300, () => $('partial').textContent = words[1]],
+    [1450, () => $('partial').textContent = words[2]],
+    [1600, () => $('partial').textContent = words[3]],
+    [1800, () => { row.classList.add('named'); pill.classList.add('wide'); }], // name + 3 sensitive found
+    [1900, () => move(470, 50)],                                         // pointer heads for the pill
+    [2600, () => pill.classList.add('tools')],                           // hover: actions slide in
+    [2750, () => move(426, 90)],                                         // to "Redact 3"
+    [3350, () => $('redact').classList.add('hover')],
+    [3700, () => { cursor.classList.add('click'); $('redact').classList.add('press'); }],
+    [3850, () => { cursor.classList.remove('click'); $('redact').classList.remove('press'); }],
+    [4000, () => {                                                       // redacted, copied
+      $('thumb').classList.add('redacted-now');
+      setText($('redact'), 'Redacted');
+      setText($('copy'), 'Copied');
+    }],
+    [4250, () => { $('redact').classList.remove('hover'); move(226, 46); }], // rest on the thumbnail
+    [4950, () => $('peek').classList.add('show')],                       // Peek shows the cleaned copy
+    [5900, () => $('caption').classList.add('show')],
+  ];
+  for (const [t, f] of steps) setTimeout(f, t);
+</script>
+</body>
+</html>

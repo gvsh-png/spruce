@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Search Inside Screenshots</title>
+<style>
+  :root {
+    --bg: #0B0B0C; --sidebar: #070708; --text: #fff;
+    --secondary: rgba(255,255,255,.55); --tertiary: rgba(255,255,255,.32);
+    --field: rgba(255,255,255,.08); --success: rgb(48,209,89); --keep: #FFD60A;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+    --rounded: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  html, body { margin: 0; padding: 0; background: #1b2430; }
+  #stage {
+    position: relative; width: 800px; height: 500px; overflow: hidden; font-family: var(--sans);
+    background:
+      radial-gradient(120% 90% at 20% 10%, #6f8fa6 0%, transparent 60%),
+      radial-gradient(100% 80% at 90% 100%, #3d5a4c 0%, transparent 65%),
+      linear-gradient(160deg, #4b6478 0%, #2c3e4c 55%, #22323a 100%);
+  }
+  .menubar {
+    position: absolute; inset: 0 0 auto 0; height: 22px; background: rgba(20,24,28,.35);
+    backdrop-filter: blur(10px); color: rgba(255,255,255,.85); font-size: 12px; font-weight: 500;
+    display: flex; align-items: center; padding: 0 12px; gap: 16px;
+  }
+  .menubar .right { margin-left: auto; display: flex; gap: 14px; align-items: center; }
+  .leaf { width: 12px; height: 12px; border-radius: 3px 9px 3px 9px; background: rgba(255,255,255,.85); }
+
+  /* The pill */
+  .pill {
+    position: absolute; left: 50%; top: 30px; width: 360px; height: 46px; margin-left: -180px;
+    background: #000; border-radius: 23px; box-shadow: 0 10px 28px rgba(0,0,0,.45), inset 0 0 0 .5px rgba(255,255,255,.12);
+    display: flex; align-items: center; gap: 8px; padding: 0 14px 0 9px; box-sizing: border-box;
+    transform: translateY(-80px) scale(.6); opacity: 0;
+    transition: transform .45s cubic-bezier(.3,1.35,.5,1), opacity .3s;
+  }
+  .pill.in { transform: none; opacity: 1; }
+  .pill.out { transform: translateY(-70px) scale(.7); opacity: 0; transition: transform .4s ease-in, opacity .3s .1s; }
+  .pill .thumb { width: 48px; height: 30px; border-radius: 6px; background: #f3efe7; overflow: hidden; flex: none; position: relative; }
+  .pill .thumb i { position: absolute; left: 6px; right: 10px; height: 2px; background: #b9b2a4; border-radius: 1px; }
+  .pill .name { font: 13px var(--mono); color: #fff; white-space: nowrap; overflow: hidden; flex: 1; }
+  .pill .name span { color: rgba(255,255,255,.45); }
+  .check { width: 16px; height: 16px; border-radius: 50%; background: #32d74b; flex: none; position: relative; }
+  .check:after { content: ""; position: absolute; left: 5px; top: 3px; width: 4px; height: 7px; border: solid #000; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+
+  /* Manager window */
+  .win {
+    position: absolute; left: 40px; top: 58px; width: 720px; height: 410px; border-radius: 12px; overflow: hidden;
+    background: var(--bg); box-shadow: 0 24px 60px rgba(0,0,0,.5), 0 0 0 .5px rgba(255,255,255,.14);
+    display: flex; opacity: 0; transform: scale(.96) translateY(10px);
+    transition: opacity .45s ease-out, transform .5s cubic-bezier(.2,.9,.3,1);
+  }
+  .win.in { opacity: 1; transform: none; }
+  .side { width: 162px; background: var(--sidebar); border-right: 1px solid rgba(255,255,255,.07); padding: 34px 8px 0; box-sizing: border-box; flex: none; }
+  .lights { position: absolute; left: 12px; top: 12px; display: flex; gap: 7px; }
+  .lights b { width: 11px; height: 11px; border-radius: 50%; display: block; }
+  .brand { display: flex; align-items: center; gap: 7px; padding: 0 8px 12px; font: 700 13px var(--rounded); color: #fff; }
+  .brand .mark { width: 16px; height: 9px; border-radius: 5px; background: #000; box-shadow: inset 0 0 0 1px rgba(255,255,255,.4); }
+  .sh { font: 700 9px var(--rounded); letter-spacing: .8px; color: var(--tertiary); padding: 0 8px 3px; }
+  .row { display: flex; align-items: center; gap: 7px; font-size: 11px; white-space: nowrap; color: var(--secondary); padding: 5px 8px; border-radius: 7px; }
+  .row.sel { background: rgba(255,255,255,.11); color: #fff; font-weight: 600; }
+  .row .ic { width: 10px; height: 10px; border: 1.3px solid currentColor; border-radius: 3px; opacity: .8; }
+  .row .n { margin-left: auto; font: 10px var(--mono); color: var(--tertiary); }
+
+  .main { flex: 1; position: relative; }
+  .head { padding: 26px 18px 0; display: flex; align-items: center; gap: 10px; }
+  .title { font: 700 18px var(--rounded); color: #fff; }
+  .sub { font-size: 10.5px; color: var(--secondary); margin-top: 2px; }
+  .search {
+    margin-left: auto; width: 190px; height: 26px; border-radius: 13px; background: var(--field);
+    display: flex; align-items: center; gap: 6px; padding: 0 10px; box-sizing: border-box;
+    font: 11px var(--mono); color: #fff; transition: box-shadow .2s;
+  }
+  .search.focus { box-shadow: 0 0 0 2px rgba(48,209,89,.55); }
+  .search .glass { width: 8px; height: 8px; border: 1.4px solid var(--tertiary); border-radius: 50%; position: relative; flex: none; }
+  .search .glass:after { content: ""; position: absolute; width: 4px; height: 1.4px; background: var(--tertiary); right: -4px; bottom: -2px; transform: rotate(45deg); }
+  .ph { color: var(--tertiary); }
+  .caret { display: inline-block; width: 1px; height: 12px; background: var(--success); vertical-align: -2px; margin-left: 1px; opacity: 0; }
+  .search.focus .caret { animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: 0 } }
+  .refresh { width: 26px; height: 26px; border-radius: 13px; background: rgba(255,255,255,.08); }
+  .day { padding: 14px 18px 8px; display: flex; gap: 8px; align-items: baseline; }
+  .day b { font: 700 12px var(--rounded); color: #fff; }
+  .day span { font: 10.5px var(--mono); color: var(--tertiary); }
+
+  .grid { position: relative; margin: 0 18px; height: 300px; }
+  .tile { position: absolute; width: 168px; transition: left .5s cubic-bezier(.3,1,.4,1), top .5s cubic-bezier(.3,1,.4,1), opacity .35s, transform .35s; }
+  .tile.gone { opacity: 0; transform: scale(.94); }
+  .plate { width: 168px; height: 105px; border-radius: 10px; background: rgba(255,255,255,.035); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.07); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .shot { width: 156px; height: 93px; border-radius: 3px; position: relative; overflow: hidden; font-size: 6.5px; line-height: 1.25; }
+  .label { padding: 7px 2px 0; }
+  .fname { font: 10px var(--mono); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta { position: relative; height: 13px; margin-top: 1px; font-size: 9.5px; }
+  .meta > div { position: absolute; left: 0; top: 0; white-space: nowrap; transition: opacity .35s; }
+  .date { color: var(--tertiary); }
+  .snip { color: var(--secondary); opacity: 0; }
+  .tile.hit .date { opacity: 0; }
+  .tile.hit .snip { opacity: 1; }
+  mark { background: transparent; color: inherit; border-radius: 2px; padding: 0 1.5px; margin: 0 -1.5px; transition: background-color .45s ease-out; }
+  .lit mark { background: rgba(48,209,89,.35); }
+
+  /* fake screenshot contents */
+  .chat { background: #1d1f24; color: #e6e6e6; padding: 6px 7px; box-sizing: border-box; }
+  .chat .side2 { position: absolute; left: 0; top: 0; bottom: 0; width: 26px; background: #3a1f3d; }
+  .chat .msgs { margin-left: 24px; }
+  .chat p { margin: 0 0 4px; }
+  .chat strong { color: #fff; }
+  .receipt { background: #f4f1ea; color: #333; padding: 6px 30px; box-sizing: border-box; text-align: center; font-family: var(--mono); }
+  .receipt p { margin: 0 0 2px; }
+  .receipt .r { display: flex; justify-content: space-between; }
+  .design { background: #2b2b2b; }
+  .design i { position: absolute; border-radius: 3px; }
+  .code { background: #0d1117; color: #c9d1d9; padding: 6px; box-sizing: border-box; font-family: var(--mono); }
+  .code p { margin: 0 0 2px; white-space: nowrap; }
+  .doc { background: #fff; color: #333; padding: 7px 10px; box-sizing: border-box; }
+  .doc p { margin: 0 0 3px; }
+  .map { background: #e8e4d8; }
+  .map i { position: absolute; background: #fff; }
+
+  .caption {
+    position: absolute; left: 50%; bottom: 10px; transform: translate(-50%, 6px); opacity: 0;
+    font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,.92); background: rgba(0,0,0,.55);
+    padding: 6px 14px; border-radius: 14px; white-space: nowrap; transition: opacity .5s, transform .5s;
+  }
+  .caption.in { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="menubar"><span style="font-weight:700">Finder</span><span>File</span><span>Edit</span><span>View</span>
+    <div class="right"><div class="leaf"></div><span>Tue 3 Nov 10:41</span></div></div>
+
+  <div class="pill" id="pill">
+    <div class="thumb"><i style="top:6px"></i><i style="top:12px;right:18px"></i><i style="top:18px"></i><i style="top:24px;right:22px"></i></div>
+    <div class="name">cafe-bloom-receipt-0312<span>.png</span></div>
+    <div class="check"></div>
+  </div>
+
+  <div class="win" id="win">
+    <div class="lights"><b style="background:#ff5f57"></b><b style="background:#febc2e"></b><b style="background:#28c840"></b></div>
+    <div class="side">
+      <div class="brand"><div class="mark"></div>Spruce</div>
+      <div class="sh">SHOW</div>
+      <div class="row sel"><div class="ic"></div>All Screenshots<span class="n">6</span></div>
+      <div class="row"><div class="ic"></div>Today<span class="n">2</span></div>
+      <div class="row"><div class="ic"></div>This Week<span class="n">6</span></div>
+      <div class="row"><div class="ic"></div>Older than 30 Days<span class="n">0</span></div>
+      <div class="row"><div class="ic"></div>Kept<span class="n">1</span></div>
+      <div class="sh" style="margin-top:12px">FOLDERS</div>
+      <div class="row"><div class="ic"></div>Screenshots<span class="n">5</span></div>
+      <div class="row"><div class="ic"></div>Receipts<span class="n">1</span></div>
+    </div>
+    <div class="main">
+      <div class="head">
+        <div>
+          <div class="title">All Screenshots</div>
+          <div class="sub" id="sub">6 screenshots · 8.4 MB</div>
+        </div>
+        <div class="search" id="search"><div class="glass"></div><span id="q"><span class="ph">Search names and text</span></span><span class="caret"></span></div>
+        <div class="refresh"></div>
+      </div>
+      <div class="day"><b>This week</b><span id="daycount">6 · 8.4 MB</span></div>
+      <div class="grid" id="grid">
+
+        <div class="tile hitme" data-i="0">
+          <div class="plate"><div class="shot chat"><div class="side2"></div><div class="msgs">
+            <p><strong>Alice</strong> team offsite is friday 🌲</p>
+            <p><strong>Alice</strong> the <mark>wifi</mark> is bloom-guest</p>
+            <p><strong>Alice</strong> pw: sprucetree42</p>
+            <p><strong>Sam</strong> perfect, see you there</p>
+          </div></div></div>
+          <div class="label"><div class="fname">slack-alice-team-offsite</div>
+            <div class="meta"><div class="date">Tue 3, 10:12</div><div class="snip">Alice the wifi is bloom-guest</div></div></div>
+        </div>
+
+        <div class="tile" data-i="1">
+          <div class="plate"><div class="shot design">
+            <i style="left:10px;top:10px;width:40px;height:72px;background:#3d3d3d"></i>
+            <i style="left:58px;top:10px;width:88px;height:20px;background:#5e5ce6"></i>
+            <i style="left:58px;top:36px;width:60px;height:8px;background:#555"></i>
+            <i style="left:58px;top:50px;width:88px;height:32px;background:#3d3d3d"></i>
+          </div></div>
+          <div class="label"><div class="fname">figma-onboarding-flow</div>
+            <div class="meta"><div class="date">Tue 3, 09:47</div></div></div>
+        </div>
+
+        <div class="tile hitme" data-i="2">
+          <div class="plate"><div class="shot receipt">
+            <p style="font-weight:700">CAFÉ BLOOM</p>
+            <p class="r"><span>Flat white</span><span>4.20</span></p>
+            <p class="r"><span>Croissant</span><span>3.10</span></p>
+            <p class="r"><span>Total</span><span>7.30</span></p>
+            <p style="margin-top:3px"><mark>WiFi</mark>: bloom-guest</p>
+            <p>Order 0312 · thank you</p>
+          </div></div>
+          <div class="label"><div class="fname">cafe-bloom-receipt-0312</div>
+            <div class="meta"><div class="date">Mon 2, 16:30</div><div class="snip">WiFi: bloom-guest</div></div></div>
+        </div>
+
+        <div class="tile" data-i="3">
+          <div class="plate"><div class="shot code">
+            <p style="color:#8b949e">// PR #412 · review</p>
+            <p><span style="color:#ff7b72">func</span> rename(_ url: URL)</p>
+            <p>&nbsp;&nbsp;let stem = rules.stem()</p>
+            <p>&nbsp;&nbsp;<span style="color:#ff7b72">try</span> move(url, stem)</p>
+            <p style="color:#3fb950">+ markDone(dest)</p>
+          </div></div>
+          <div class="label"><div class="fname">github-pr-412-review</div>
+            <div class="meta"><div class="date">Mon 2, 11:05</div></div></div>
+        </div>
+
+        <div class="tile" data-i="4">
+          <div class="plate"><div class="shot doc">
+            <p style="font-weight:700;font-size:8px">Invoice 4471</p>
+            <p>Acme Studio · Due 30 Nov</p>
+            <p>Design retainer ........ 1,200.00</p>
+            <p>Hosting ........................ 40.00</p>
+            <p style="font-weight:700">Total 1,240.00</p>
+          </div></div>
+          <div class="label"><div class="fname">invoice-4471-acme</div>
+            <div class="meta"><div class="date">Sun 1, 18:22</div></div></div>
+        </div>
+
+        <div class="tile" data-i="5">
+          <div class="plate"><div class="shot map">
+            <i style="left:0;top:40px;width:156px;height:5px"></i>
+            <i style="left:70px;top:0;width:5px;height:93px"></i>
+            <i style="left:20px;top:0;width:4px;height:93px;transform:skewX(-20deg)"></i>
+            <i style="left:30px;top:22px;width:60px;height:3px;background:#0a84ff"></i>
+            <i style="left:88px;top:22px;width:3px;height:40px;background:#0a84ff"></i>
+          </div></div>
+          <div class="label"><div class="fname">maps-lisbon-route</div>
+            <div class="meta"><div class="date">Sun 1, 12:40</div></div></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="caption" id="cap">Search finds the words inside your screenshots, not just their names</div>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const tiles = Array.from(document.querySelectorAll('.tile'));
+  const colW = 178, rowH = 140;
+  function place(t, slot) { t.style.left = (slot % 3) * colW + 'px'; t.style.top = Math.floor(slot / 3) * rowH + 'px'; }
+  tiles.forEach((t, i) => place(t, i));
+
+  const at = (s, f) => setTimeout(f, s * 1000);
+
+  // A new screenshot arrives and is named: its text is saved next to the file.
+  at(0.2, () => $('pill').classList.add('in'));
+  at(1.5, () => { $('pill').classList.remove('in'); $('pill').classList.add('out'); });
+
+  // Open the Screenshot Manager.
+  at(1.7, () => $('win').classList.add('in'));
+
+  // Type "wifi".
+  at(2.5, () => $('search').classList.add('focus'));
+  const word = 'wifi';
+  for (let i = 1; i <= word.length; i++) {
+    at(2.75 + i * 0.16, () => { $('q').textContent = word.slice(0, i); });
+  }
+
+  // Neither name mentions wifi, but both screenshots do.
+  at(3.55, () => {
+    let slot = 0;
+    tiles.forEach((t) => {
+      if (t.classList.contains('hitme')) { place(t, slot++); t.classList.add('hit'); }
+      else t.classList.add('gone');
+    });
+    $('sub').textContent = '2 screenshots · 2.9 MB';
+    $('daycount').textContent = '2 · 2.9 MB';
+  });
+  at(4.15, () => tiles.forEach((t) => { if (t.classList.contains('hitme')) t.classList.add('lit'); }));
+  at(4.8, () => $('cap').classList.add('in'));
+})();
+</script>
+</body>
+</html>
