@@ -1,32 +1,169 @@
+<div align="center">
+
+<img src="docs/media/icon.png" width="128" height="128" alt="Spruce icon">
+
 # Spruce
 
-Spruce is a macOS menu bar app that watches for new screenshots, reads their text on-device, asks an AI model for a short description, and renames the file:
+**Your screenshots, named for you.**
 
-```
-Screenshot 2026-11-02 at 12.34.56 PM.png  →  slack-message-from-alice-about-q3-budget.png
-```
+Spruce reads each new screenshot on your Mac and gives it a real name, so<br>
+`Screenshot 2026-11-03 at 10.12.00.png` becomes `booking-copenhagen-lisbon-flight-sk-2581.png`.
 
-![Spruce renaming a new screenshot](docs/media/demo.gif)
+[![Latest release](https://img.shields.io/github/v/release/gvsh-png/spruce?style=flat-square&label=release&color=34c759)](https://github.com/gvsh-png/spruce/releases/latest)
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111?style=flat-square&logo=apple&logoColor=white)](#requirements)
+[![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-native-111111?style=flat-square)](#requirements)
+[![On-device AI](https://img.shields.io/badge/AI-on--device-111111?style=flat-square)](#privacy)
+[![Downloads](https://img.shields.io/github/downloads/gvsh-png/spruce/total?style=flat-square&color=111111)](https://github.com/gvsh-png/spruce/releases)
 
-[Watch the demo video (MP4)](https://gvsh-png.github.io/spruce/media/demo.mp4)
+[Install](#install) · [Features](#features) · [Privacy](#privacy) · [AI models](#ai-models) · [FAQ](#faq)
 
-| Reading the screenshot | Renamed |
-|---|---|
-| ![Spruce naming a screenshot](docs/media/naming.png) | ![Spruce after renaming a screenshot](docs/media/renamed.png) |
+<br>
 
-Requires macOS 14 or later, Apple Silicon first. Apple's on-device model needs macOS 26 with Apple Intelligence turned on.
+<img src="docs/media/demo.gif" width="800" alt="A new screenshot appears in Spruce's pill at the top of the screen, and its name is written while you watch">
+
+<sub>Take a screenshot. A small pill drops in, reads it, and names it. <a href="https://gvsh-png.github.io/spruce/media/demo.mp4">Watch in full quality</a>.</sub>
+
+</div>
 
 ## Install
+
+Paste this into Terminal:
 
 ```sh
 curl -fsSL https://gvsh-png.github.io/spruce/install.sh | bash
 ```
 
-Installs the latest release into /Applications and opens it. Spruce then updates itself (Settings → General → Updates). Run the same command again to reinstall.
+Spruce installs into `/Applications`, opens, and lives in your menu bar. From then on it updates itself.
 
-## Build and run
+## Features
 
-You need Xcode 26 (free, from the App Store) and XcodeGen.
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### ✏️ Names that make sense
+Spruce reads the text in each screenshot on your Mac and asks an AI model for a short, searchable name. You see it being written, and you can click it to edit before it's saved.
+
+</td>
+<td width="50%" valign="top">
+
+### 💊 A pill, not a popup
+A slim black pill drops in near the top of the screen. It never steals focus and closes by itself after 5 seconds.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### ⚡️ One click for everything
+**Copy**, **Copy Text**, **Move**, **Keep** and **Delete** sit right in the pill. Drag the thumbnail into any app. Hover it for a bigger preview.
+
+</td>
+<td valign="top">
+
+### 🧹 Clutter cleans itself up
+Screenshots are temporary by default: after 14 days they go to the Trash unless you kept, moved or sorted them. Bursts of near-identical shots collapse into one.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🗂️ Screenshot Manager
+Browse every screenshot by day, week or month. Select a whole week and delete it in one go, with Undo.
+
+</td>
+<td valign="top">
+
+### 🏷️ Sorted and tagged
+Optional sorting into folders you choose, plus Finder tags by kind: Chat, Code, Receipt, Document, Design, Web, Email and more.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🔒 Private apps
+Screenshots of password managers, Messages, or any app you add keep their original name. Nothing from them is read.
+
+</td>
+<td valign="top">
+
+### ⏪ Undo anything
+Every rename is logged. Undo the last one from the menu bar, or go back through the full history in Settings.
+
+</td>
+</tr>
+</table>
+
+<p align="center">
+  <img src="docs/media/naming.png" width="420" alt="Spruce's pill while it reads a screenshot">
+  <img src="docs/media/renamed.png" width="420" alt="Spruce's pill after naming the screenshot">
+</p>
+
+Also: copies every screenshot to the clipboard the moment it's saved, renames your old screenshots in one batch, and gives a small trackpad tick when a name lands.
+
+## Privacy
+
+- **On your Mac by default.** Text is read with Apple's Vision framework, and names come from Apple's on-device model or a local Ollama model. Nothing leaves your Mac unless you add a cloud API key yourself.
+- **Text only.** With a cloud model, only the extracted text is sent. A small image is sent only if you turn that on.
+- **No account, no analytics, no server.** Settings stay on your Mac. A cloud API key is stored in your Keychain.
+
+## AI models
+
+Pick one in **Settings → AI**. **Automatic** uses the first that works:
+
+| Model | What you need | Cost |
+|---|---|---|
+| **Apple on-device** | macOS 26 with Apple Intelligence turned on | Free |
+| **Ollama** | [ollama.com](https://ollama.com), then `ollama pull gemma3:4b` | Free |
+| **Cloud API** | Any OpenAI-compatible API and your own key (Anthropic, OpenAI, …) | Your API usage |
+
+If no model answers, the file is named after the app you were using plus the time, e.g. `xcode-2026-11-02-1234.png`.
+
+## Requirements
+
+- macOS 14 Sonoma or later. Apple's on-device model needs macOS 26.
+- Built for Apple Silicon.
+
+## FAQ
+
+<details>
+<summary><b>Renaming takes a few seconds before anything happens</b></summary>
+<br>
+macOS doesn't save a screenshot until its floating thumbnail goes away. Turn the thumbnail off: press ⌘⇧5, open Options, and untick Show Floating Thumbnail. Spruce's pill does the same job.
+</details>
+
+<details>
+<summary><b>Does it work with CleanShot, Shottr and other screenshot apps?</b></summary>
+<br>
+Yes. Turn on <b>Settings → General → Also match by filename</b>. Those apps don't mark their files as screenshots the way macOS does.
+</details>
+
+<details>
+<summary><b>What about screenshots I already have?</b></summary>
+<br>
+Choose <b>Rename Old Screenshots…</b> in the menu bar. You'll see every proposed name first and can edit or skip any of them. The whole batch is one Undo.
+</details>
+
+<details>
+<summary><b>macOS says Spruce can't be opened</b></summary>
+<br>
+Spruce isn't notarized by Apple yet. The Terminal install above avoids this. If you downloaded the zip in a browser, open System Settings → Privacy & Security and click <b>Open Anyway</b> next to Spruce.
+</details>
+
+<details>
+<summary><b>How do I uninstall it?</b></summary>
+<br>
+Quit Spruce from the menu bar and move <code>/Applications/Spruce.app</code> to the Trash. Your history is in <code>~/Library/Application Support/ScreenshotRenamer</code>.
+</details>
+
+## Building from source
+
+<details>
+<summary>Build, test and release</summary>
+
+You need Xcode 26 and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```sh
 brew install xcodegen
@@ -34,92 +171,48 @@ xcodegen generate
 open ScreenshotRenamer.xcodeproj        # then Run (⌘R)
 ```
 
-Or from the terminal:
+Or from Terminal:
 
 ```sh
 xcodegen generate
 xcodebuild -scheme ScreenshotRenamer -configuration Debug -derivedDataPath build build
-open "build/Build/Products/Debug/Spruce.app"
+open build/Build/Products/Debug/Spruce.app
 ```
 
-If `xcode-select` still points at the Command Line Tools, prefix the commands with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
+If `xcode-select` points at the Command Line Tools, prefix commands with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`. The `.xcodeproj` is generated: change targets, Info.plist keys and build settings in `project.yml`.
 
-The `.xcodeproj` is generated. Change targets, Info.plist keys and build settings in `project.yml`.
-
-Run the self-check for the naming rules (Command Line Tools are enough):
+Self-check for the naming rules:
 
 ```sh
 swiftc Sources/TextRules.swift Tests/main.swift -o /tmp/selfcheck && /tmp/selfcheck
 ```
 
-## Permissions
+Ship a release (builds, signs the update, updates the feed, publishes on GitHub):
 
-- **Folder access.** The app is not sandboxed. The first time it watches Desktop, Documents or Downloads, macOS asks once for access to that folder. Other folders, including the default `~/Pictures/Screenshots`, need no prompt. If you click Don't Allow, turn access back on in System Settings → Privacy & Security → Files and Folders. Full Disk Access is not needed.
-- **Notifications.** The app asks once. Notifications carry an Undo button.
-- **Keychain.** A cloud API key is saved in your login Keychain. Development builds are signed ad hoc, so macOS may ask for Keychain access again after each rebuild.
+```sh
+scripts/release.sh 0.2.0 "What changed"
+```
 
-## How it works
+</details>
 
-The pipeline is one file per step:
+<details>
+<summary>How it works</summary>
 
 | Step | File | What happens |
 |---|---|---|
-| Watch | `Sources/Watcher.swift` | A `DispatchSource` on each folder reports changes. New files are kept only when macOS marked them as screenshots (`kMDItemIsScreenCapture`, works in every system language) and they don't already carry our own "done" attribute. The app waits until the file stops growing, because macOS writes a hidden temp file first. |
-| OCR | `Sources/OCR.swift` | Vision `VNRecognizeTextRequest`, accurate level, on-device. |
-| Pick text | `Sources/TextRules.swift` | Drops low-confidence lines and duplicates, ranks the rest by text size and position, keeps about 1,500 characters. If fewer than 20 characters remain, a 512 px thumbnail is prepared. |
-| Name | `Sources/Naming.swift` | Asks the model for 3–8 words as JSON. The prompt is versioned (`Prompt.version`), and the version is stored with each history entry. |
-| Rename | `Sources/Storage.swift` | The app, not the model, builds the filename: case style, optional date, an 80-character limit, letters and digits only. Taken names get `-2`, `-3`. Files are never overwritten. |
-| Log | `Sources/Storage.swift` | Each rename is appended to `~/Library/Application Support/ScreenshotRenamer/history.jsonl` and can be undone. |
+| Watch | `Sources/Watcher.swift` | Watches each folder for files macOS marked as screenshots (`kMDItemIsScreenCapture`, works in every language). |
+| Read | `Sources/OCR.swift` | Apple Vision text recognition, on-device. |
+| Pick text | `Sources/TextRules.swift` | Drops low-confidence lines and duplicates, ranks the rest by size and position, keeps about 1,500 characters. |
+| Name | `Sources/Naming.swift` | Asks the model for a few words, a kind and an optional folder, streamed so the pill can show the name as it's written. |
+| Rename | `Sources/Storage.swift` | Spruce, not the model, builds the filename: style, optional date, length limit, safe characters. Existing files are never overwritten. |
+| Log | `Sources/Storage.swift` | Each rename is appended to `history.jsonl` and can be undone. |
 
-`Sources/AppState.swift` runs the steps one file at a time from a queue, with OCR and network work off the main thread. `Sources/App.swift` holds the menu bar popover and the Settings window, `Sources/Panel.swift` the capture panel, and `Sources/Bulk.swift` the bulk rename window.
+`Sources/AppState.swift` runs the steps one screenshot at a time. `Sources/Panel.swift` is the pill, `Sources/Manager.swift` the Screenshot Manager, `Sources/Bulk.swift` bulk renaming, and `Sources/Updater.swift` auto-updates (Sparkle, signed with EdDSA).
 
-Files that are already in a folder when watching starts are left alone. To rename existing screenshots, use **Rename Old Screenshots…** in the menu.
-
-`propose` (OCR + AI + naming rules) never touches the file; `apply` is the only step that renames it. The capture panel and bulk rename show the proposal first.
-
-## AI providers
-
-Set the provider in Settings → AI.
-
-- **Automatic** (default): Apple's on-device model if available, then Ollama if it's running, then the cloud API, but only if you added a key. Nothing leaves your Mac unless you configured a cloud key.
-- **Apple on-device**: macOS 26 with Apple Intelligence turned on. Text only. Free, nothing to install.
-- **Ollama**: install it from ollama.com, then run `ollama pull gemma3:4b`. That model also reads images, which helps with screenshots that contain little text. Default server: `http://localhost:11434/v1`.
-- **Cloud API**: any OpenAI-compatible endpoint. The default is Anthropic (`https://api.anthropic.com/v1`, model `claude-haiku-5-5`). For OpenAI, use `https://api.openai.com/v1` and a model such as `gpt-4o-mini`. Only the extracted text is sent. A small image is sent only if you turn on "Send a small image…".
-
-If the model fails, network errors are retried twice (after 2 s, then 6 s). After that, the file is named after the app that was in front, plus the time, e.g. `xcode-2026-11-02-1234.png`.
-
-## After a screenshot
-
-- **Clipboard.** The image is copied as soon as macOS saves the file, so you can paste it right away.
-- **Capture panel.** A small panel in the bottom-right corner shows the screenshot and its proposed name. Click the name to edit it and press Return. Copy, Copy Text, Move and Delete are one click each. The name is applied after 6 seconds without hovering or typing, or when you press Esc or close the panel. It never takes focus from the app you're working in. Turn it off in Settings → General to get a notification with Undo instead.
-- **Faster saves.** Turn off Apple's floating thumbnail (⌘⇧5 → Options → Show Floating Thumbnail). macOS doesn't save the file until that thumbnail disappears, which adds 5–15 seconds.
-
-## Private apps
-
-Screenshots taken while a listed app is in front keep their original name, and nothing from them is read or sent to any AI. The defaults are 1Password, Bitwarden, Passwords, Keychain Access and Messages. Edit the list in Settings → Private Apps.
-
-## Finder tags
-
-Each renamed screenshot gets a Finder tag for its kind: Chat, Code, Receipt, Document, Design, Web, Email, Social, Video or Map. Filter by a tag in any Finder sidebar. Turn tags off in Settings → Sorting.
-
-## Rename old screenshots
-
-Menu bar → **Rename Old Screenshots…** scans your screenshot folder for files that still have their system name ("Screenshot 2026-10-30 at 14.09.49", in any language). It proposes a name for each, and you can edit or untick any before applying. The whole batch is one step for **Undo Last**.
-
-## Folder sorting
-
-Off by default. Turn it on in Settings → Sorting and list your folders (e.g. `Receipts`, `Work/Slack`). The model picks one of them or none, and it never creates new folder names. Folders are created inside the folder the screenshot was saved in.
-
-## Distribution notes
-
-v1 targets a direct download, signed with Developer ID and notarized, not the Mac App Store. A sandboxed App Store build would need security-scoped bookmarks for every watched folder. The planned model is a one-time purchase: local AI is free, and the cloud uses your own key, so no backend is needed.
-
-## Known limits
-
-- Settings reset to defaults if the settings format changes between versions.
-- The fallback name uses the frontmost app at detection time, about a second after capture.
-- Third-party screenshot tools (CleanShot, Shottr) don't set the macOS screenshot flag. Turn on "Also rename files whose names start with…" in Settings → General to catch them.
+</details>
 
 ---
 
-© 2026 gvsh-png. All rights reserved.
+<div align="center">
+<sub>© 2026 gvsh-png. All rights reserved.</sub>
+</div>
