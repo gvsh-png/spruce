@@ -54,6 +54,7 @@ check(TextRules.rankedText([]) == "", "no text")
 
 check(TextRules.cleaned(Suggestion(words: ["orca", "Screenshot"], folder: nil)) == Suggestion(words: ["orca"], folder: nil), "banned word dropped")
 check(TextRules.cleaned(Suggestion(words: ["image"], folder: nil)) == nil, "only banned words")
+check(TextRules.cleaned(Suggestion(words: ["Screenshot:", "screen-shot", "slack"], folder: nil)) == Suggestion(words: ["slack"], folder: nil), "banned words with punctuation dropped")
 check(TextRules.cleaned(Suggestion(words: (1...12).map(String.init), folder: nil))?.words.count == 7, "capped at 7 words")
 check(TextRules.cleaned(Suggestion(words: ["invoice northwind hosting", "alex jensen", "cloud server m2", "october"], folder: nil))?.words.count == 7, "multi-word entries count each word")
 

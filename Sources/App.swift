@@ -330,9 +330,9 @@ struct IslandPage: View {
 
     var body: some View {
         @Bindable var state = state
-        ThemePage(title: "Island", subtitle: "The black island that grows out of the notch after each screenshot.") {
+        ThemePage(title: "Island", subtitle: "The black pill that drops in under the menu bar after each screenshot.") {
             ThemeSection {
-                ThemeToggle(title: "Show the island", detail: "Without a notch it floats under the menu bar.", isOn: $state.prefs.showPanel)
+                ThemeToggle(title: "Show the pill", detail: "Shows the name and quick actions for each new screenshot.", isOn: $state.prefs.showPanel)
             }
             Group {
                 ThemeSection(title: "Timing", footer: "Counted from when the name appears. Hovering or editing pauses it.") {

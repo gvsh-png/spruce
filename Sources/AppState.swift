@@ -35,6 +35,8 @@ struct Capture {
     var appliedURL: URL?
     /// Where the file went after Delete; non-nil while the island shows "Moved to Trash · Undo".
     var trashedURL: URL?
+    /// What the user typed in the name field, so a newer screenshot arriving mid-edit doesn't lose it.
+    var edited: String?
 }
 
 /// Runs the pipeline and holds everything the UI shows.
@@ -128,11 +130,13 @@ final class AppState {
         // The app in front when the screenshot appeared; used for the fallback name.
         queue.append(Job(url: url, app: front?.localizedName, date: Date()))
         queued = queue.count
-        if !isProcessing { Task { await drain() } }
+        if !isProcessing {
+            isProcessing = true // set now, so files arriving in the same pass don't start a second drain
+            Task { await drain() }
+        }
     }
 
     private func drain() async {
-        isProcessing = true
         defer { isProcessing = false }
         while !queue.isEmpty {
             let job = queue.removeFirst()
@@ -153,7 +157,8 @@ final class AppState {
             proposal.live = true
             proposal.app = job.app
             proposal.date = job.date
-            if prefs.collapseBursts, let removed = collapseBurst(before: proposal), capture?.url == job.url {
+            // Only while the island shows this capture: it is where the Undo for the collapse lives.
+            if prefs.collapseBursts, capture?.url == job.url, let removed = collapseBurst(before: proposal) {
                 capture?.replaced.append(removed)
             }
             if capture?.url == job.url {
@@ -172,7 +177,7 @@ final class AppState {
         guard current.trashedURL == nil else { return } // deleted: nothing to apply
         guard current.appliedURL == nil else { return } // already applied when dragged out
         guard var proposal = current.proposal else { return } // still naming: `drain` applies it when ready
-        if let edited, !edited.trimmingCharacters(in: .whitespaces).isEmpty { proposal.stem = edited }
+        if let edited = edited ?? current.edited, !edited.trimmingCharacters(in: .whitespaces).isEmpty { proposal.stem = edited }
         if let dir { proposal.dir = dir }
         if keep {
             proposal.keep = true
@@ -188,8 +193,7 @@ final class AppState {
         if let done = current.appliedURL { return done }
         guard var proposal = current.proposal else { return current.url }
         if let edited, !edited.trimmingCharacters(in: .whitespaces).isEmpty { proposal.stem = edited }
-        guard apply(proposal), let entry = history.first else { return current.url }
-        let dest = URL(fileURLWithPath: entry.to)
+        guard let dest = apply(proposal) else { return current.url }
         capture?.appliedURL = dest
         return dest
     }
@@ -289,19 +293,24 @@ final class AppState {
     }
 
     /// The only step that changes the file: mark, move, tag, log.
+    /// Returns where the file ended up, or nil if it couldn't be renamed.
     @discardableResult
-    func apply(_ p: Proposal, batch: UUID? = nil) -> Bool {
-        guard FileManager.default.fileExists(atPath: p.url.path) else { return false } // deleted or moved meanwhile
+    func apply(_ p: Proposal, batch: UUID? = nil) -> URL? {
+        guard FileManager.default.fileExists(atPath: p.url.path) else { return nil } // deleted or moved meanwhile
         do {
-            XAttr.markDone(p.url)
             // Names may have been edited by hand (panel, bulk list): run them through the same rules.
             let stem = TextRules.stem(words: [p.stem], style: prefs.style, date: nil) ?? p.stem
+            // Marked only after the move worked; the watcher runs on this same thread, so it can't
+            // see the new name before the mark is on it.
             let dest = try FileOps.move(p.url, toDir: p.dir, stem: stem, style: prefs.style)
+            XAttr.markDone(dest)
             if prefs.tagsEnabled, let kind = p.kind { FileOps.addTag(kind, to: dest) }
             if p.keep { XAttr.markKept(dest) }
+            guard dest != p.url else { return dest } // already had this name: nothing to log or undo
             let entry = HistoryEntry(batch: batch, date: Date(), from: p.url.path, to: dest.path, provider: p.provider, prompt: Prompt.version)
             history.insert(entry, at: 0)
             History.append(entry, all: history)
+            if history.count > History.cap + 100 { history.removeLast(history.count - History.cap) } // the file was just trimmed too
             if batch == nil, prefs.notify, !prefs.showPanel { Notifier.renamed(entry) }
             if p.live {
                 lastLive = (entry.id, p.words, p.app, p.date)
@@ -311,10 +320,10 @@ final class AppState {
                 justRenamed = true
                 Task { try? await Task.sleep(nanoseconds: 1_600_000_000); justRenamed = false }
             }
-            return true
+            return dest
         } catch {
             lastError = "Couldn't rename “\(p.url.lastPathComponent)”: \(error.localizedDescription)"
-            return false
+            return nil
         }
     }
 
@@ -398,24 +407,30 @@ final class AppState {
     func scanForBulk(_ folder: URL) {
         bulkTask?.cancel()
         bulk = []
-        let fm = FileManager.default
-        let prefixes = prefs.prefixList
-        let files = ((try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.creationDateKey], options: .skipsHiddenFiles)) ?? [])
-            .filter {
-                FolderWatcher.extensions.contains($0.pathExtension.lowercased())
-                    && TextRules.looksDefaultName($0.lastPathComponent)
-                    && !XAttr.isDone($0)
-                    && (XAttr.isScreenCapture($0) || prefixes.contains(where: $0.lastPathComponent.hasPrefix))
-            }
-            .map { ($0, (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date()) }
-            .sorted { $0.1 > $1.1 } // newest first
         bulkDone = 0
-        bulkTotal = files.count
-        bulkRunning = !files.isEmpty
+        bulkTotal = 0
+        bulkRunning = true
+        let prefixes = prefs.prefixList
         bulkTask = Task {
+            // Listing a big folder and reading attributes takes a while: keep it off the main thread.
+            let files = await Task.detached(priority: .userInitiated) {
+                ((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.creationDateKey], options: .skipsHiddenFiles)) ?? [])
+                    .filter {
+                        FolderWatcher.extensions.contains($0.pathExtension.lowercased())
+                            && TextRules.looksDefaultName($0.lastPathComponent)
+                            && !XAttr.isDone($0)
+                            && (XAttr.isScreenCapture($0) || prefixes.contains(where: $0.lastPathComponent.hasPrefix))
+                    }
+                    .map { ($0, (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date()) }
+                    .sorted { $0.1 > $1.1 } // newest first
+            }.value
+            guard !Task.isCancelled else { return }
+            bulkTotal = files.count
             for (url, created) in files {
-                if Task.isCancelled { break }
-                if let p = await propose(url, app: nil, date: created) { bulk.append(p) }
+                if Task.isCancelled { return }
+                let p = await propose(url, app: nil, date: created)
+                if Task.isCancelled { return } // stopped or rescanned meanwhile: don't add to the new list
+                if let p { bulk.append(p) }
                 bulkDone += 1
             }
             bulkRunning = false
@@ -432,7 +447,7 @@ final class AppState {
         stopBulk()
         let batch = UUID()
         let picked = bulk.filter(\.include)
-        let done = picked.filter { apply($0, batch: batch) }.count
+        let done = picked.filter { apply($0, batch: batch) != nil }.count
         bulk = []
         if done > 0, prefs.notify { Notifier.batch(count: done) }
     }
@@ -441,10 +456,14 @@ final class AppState {
 
     /// Copies the image itself, so it pastes into Slack, Messages, Mail or a document right away.
     static func copyToClipboard(_ url: URL) {
-        guard let image = NSImage(contentsOf: url), let tiff = image.tiffRepresentation else { return }
         let item = NSPasteboardItem()
-        if url.pathExtension.lowercased() == "png", let png = try? Data(contentsOf: url) { item.setData(png, forType: .png) }
-        item.setData(tiff, forType: .tiff)
+        // PNG bytes as they are: no decode, no 50 MB TIFF for a Retina screenshot.
+        if url.pathExtension.lowercased() == "png", let png = try? Data(contentsOf: url) {
+            item.setData(png, forType: .png)
+        } else {
+            guard let tiff = NSImage(contentsOf: url)?.tiffRepresentation else { return }
+            item.setData(tiff, forType: .tiff)
+        }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.writeObjects([item])
     }

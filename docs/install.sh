@@ -30,13 +30,17 @@ ditto -x -k "$TMP/Spruce.zip" "$TMP"
 
 if pgrep -xq Spruce; then
   say "Quitting the running copy…"
-  osascript -e 'quit app "Spruce"' >/dev/null 2>&1 || pkill -x Spruce || true
-  sleep 1
+  osascript -e 'quit app "Spruce"' >/dev/null 2>&1 || true
+  for _ in {1..20}; do pgrep -xq Spruce || break; sleep 0.25; done
+  pkill -x Spruce 2>/dev/null || true
 fi
 
 say "Installing to ${DEST}…"
+# Copy next to the old app first, so a failed copy never leaves you with no Spruce at all.
+rm -rf "$DEST/.Spruce.app.new"
+ditto "$TMP/Spruce.app" "$DEST/.Spruce.app.new"
 rm -rf "$DEST/Spruce.app"
-ditto "$TMP/Spruce.app" "$DEST/Spruce.app"
+mv "$DEST/.Spruce.app.new" "$DEST/Spruce.app"
 
 open "$DEST/Spruce.app"
 say "Spruce is installed. Look for the viewfinder icon in your menu bar."

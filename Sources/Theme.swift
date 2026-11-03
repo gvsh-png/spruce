@@ -185,7 +185,7 @@ enum DockIcon {
     static func windowClosed() {
         // Wait for the closing window to be gone before counting what's left.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            let anyOpen = NSApp.windows.contains { $0.isVisible && $0.canBecomeMain && !($0 is NSPanel) }
+            let anyOpen = NSApp.windows.contains { ($0.isVisible || $0.isMiniaturized) && $0.canBecomeMain && !($0 is NSPanel) }
             if !anyOpen { NSApp.setActivationPolicy(.accessory) }
         }
     }

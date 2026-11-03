@@ -83,6 +83,8 @@ struct IslandView: View {
     @State private var showHover = false
     @State private var hoverExit: Task<Void, Never>?
     @State private var peekTask: Task<Void, Never>?
+    /// True while the "Other Folder…" picker is open, so the pill doesn't close underneath it.
+    @State private var choosingFolder = false
     @FocusState private var editing: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -160,13 +162,14 @@ struct IslandView: View {
             DispatchQueue.main.async { open = state.capture != nil }
         }
         .onChange(of: capture?.proposal?.id, initial: true) { name = state.capture?.proposal?.stem ?? "" }
+        .onChange(of: name) { if state.capture?.proposal != nil { state.capture?.edited = name } }
         .task(id: capture?.proposal?.id) {
             guard capture?.proposal != nil else { return }
             var idle = 0.0
             while idle < state.prefs.islandSeconds {
                 try? await Task.sleep(nanoseconds: 250_000_000)
                 if Task.isCancelled { return }
-                idle = (hovering || editing) ? 0 : idle + 0.25
+                idle = (hovering || editing || choosingFolder) ? 0 : idle + 0.25
             }
             state.finishCapture(stem: name)
         }
@@ -236,7 +239,10 @@ struct IslandView: View {
                     // Decode the preview off the main thread while waiting, so it appears without a hitch.
                     let url = capture.appliedURL ?? capture.url
                     peekTask = Task {
-                        async let image = Task.detached(priority: .userInitiated) { NSImage(contentsOf: url) }.value
+                        // 800 px is plenty for a 220 pt preview; decoding the full 5K screenshot isn't.
+                        async let image = Task.detached(priority: .userInitiated) {
+                            OCR.thumbnail(of: url, maxPixel: 800).flatMap(NSImage.init(data:))
+                        }.value
                         try? await Task.sleep(nanoseconds: UInt64(state.prefs.peekDelay * 1_000_000_000))
                         if Task.isCancelled { return }
                         if peekImage == nil { peekImage = await image }
@@ -320,6 +326,8 @@ struct IslandView: View {
                     open.directoryURL = here
                     open.prompt = "Move Here"
                     NSApp.activate(ignoringOtherApps: true)
+                    choosingFolder = true
+                    defer { choosingFolder = false }
                     if open.runModal() == .OK, let dir = open.url { state.finishCapture(stem: name, dir: dir) }
                 }
             }
@@ -378,11 +386,8 @@ struct IslandButtonStyle: ButtonStyle {
                 .scaleEffect(pressed ? 0.92 : hovering ? 1.04 : 1)
                 .opacity(enabled ? 1 : 0.4)
                 .contentShape(Capsule())
-                .onHover { inside in
-                    guard enabled else { return }
-                    hovering = inside
-                    if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                }
+                .onHover { hovering = enabled && $0 }
+                .modifier(PointingHand(active: hovering))
                 .animation(.spring(response: 0.22, dampingFraction: 0.7), value: pressed)
                 .animation(.spring(response: 0.25, dampingFraction: 0.8), value: hovering)
         }
@@ -400,10 +405,27 @@ private struct IslandHover: ViewModifier {
             .overlay(Capsule().strokeBorder(.white.opacity(hovering ? 0.18 : 0), lineWidth: 0.5))
             .scaleEffect(hovering ? 1.04 : 1)
             .contentShape(Capsule())
-            .onHover { inside in
-                hovering = inside
-                if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-            }
+            .onHover { hovering = $0 }
+            .modifier(PointingHand(active: hovering))
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: hovering)
+    }
+}
+
+/// Pointing-hand cursor while `active`. Pops on disappear too, so a button that vanishes under the
+/// pointer (Delete, the pill closing) never leaves the hand stuck.
+private struct PointingHand: ViewModifier {
+    let active: Bool
+    @State private var pushed = false
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: active) { set(active) }
+            .onDisappear { set(false) }
+    }
+
+    private func set(_ on: Bool) {
+        guard on != pushed else { return }
+        if on { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        pushed = on
     }
 }

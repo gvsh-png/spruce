@@ -81,7 +81,11 @@ struct Namer {
                 return (try await apple(input, system: system, onPartial: onPartial), "apple")
             }
             if await reachable(prefs.ollamaURL) {
-                return (try await chat(prefs.ollamaURL, prefs.ollamaModel, key: nil, input, system), "ollama:\(prefs.ollamaModel)")
+                do {
+                    return (try await chat(prefs.ollamaURL, prefs.ollamaModel, key: nil, input, system), "ollama:\(prefs.ollamaModel)")
+                } catch NamingError.http(404, _) {
+                    // Ollama runs but the model isn't pulled: try the next provider.
+                }
             }
             if Self.appleAvailable {
                 return (try await apple(input, system: system, onPartial: onPartial), "apple")
@@ -144,6 +148,10 @@ struct Namer {
     private func chat(_ base: String, _ model: String, key: String?, _ input: NamingInput, _ system: String) async throws -> Suggestion {
         guard let url = URL(string: base.trimmingCharacters(in: .whitespaces)), url.scheme?.hasPrefix("http") == true
         else { throw NamingError.badURL(base) }
+        // Never send an API key in the clear, except to a server on this Mac.
+        if key != nil, url.scheme != "https", !["localhost", "127.0.0.1", "::1"].contains(url.host ?? "") {
+            throw NamingError.badURL(base)
+        }
 
         let text = Prompt.user(text: input.text, hasImage: input.image != nil)
         let userContent: Any = input.image.map { image in
@@ -152,10 +160,10 @@ struct Namer {
                 ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64,\(image.base64EncodedString())"]],
             ]
         } ?? text
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "model": model,
             "temperature": 0.2,
-            "max_tokens": 200,
+            "max_tokens": 400,
             "messages": [["role": "system", "content": system], ["role": "user", "content": userContent]],
         ]
 
@@ -164,13 +172,21 @@ struct Namer {
         request.timeoutInterval = 60
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let key { request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization") }
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let data: Data, response: URLResponse
-        do { (data, response) = try await URLSession.shared.data(for: request) }
-        catch let error as URLError { throw NamingError.network(error) }
-
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        var data = Data(), status = 0
+        for attempt in 0..<2 {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let response: URLResponse
+            do { (data, response) = try await URLSession.shared.data(for: request) }
+            catch let error as URLError where error.code == .cancelled { throw CancellationError() }
+            catch let error as URLError { throw NamingError.network(error) }
+            status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            // Reasoning models (OpenAI o-series, GPT-5) reject `max_tokens` and custom temperatures:
+            // ask once more with only the required fields.
+            guard status == 400, attempt == 0 else { break }
+            body["temperature"] = nil
+            body["max_tokens"] = nil
+        }
         guard status == 200 else { throw NamingError.http(status, String(decoding: data.prefix(300), as: UTF8.self)) }
 
         struct Reply: Decodable {
@@ -184,7 +200,7 @@ struct Namer {
 
     /// Quick check whether a local server (Ollama) is running.
     private func reachable(_ base: String) async -> Bool {
-        guard let url = URL(string: base)?.appendingPathComponent("models") else { return false }
+        guard let url = URL(string: base.trimmingCharacters(in: .whitespaces))?.appendingPathComponent("models") else { return false }
         var request = URLRequest(url: url)
         request.timeoutInterval = 1
         let response = try? await URLSession.shared.data(for: request).1

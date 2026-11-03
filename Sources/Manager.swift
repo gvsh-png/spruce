@@ -27,6 +27,11 @@ struct ManagerView: View {
     @State private var undoTask: Task<Void, Never>?
     @AppStorage("managerTileWidth") private var tileWidth = 180.0
     @AppStorage("managerGrouping") private var grouping: Grouping = .day
+    /// Filtered, grouped and counted once per change of files, scope, search or grouping,
+    /// not on every click: selection changes re-render the view, and libraries get big.
+    @State private var shown: [ShotFile] = []
+    @State private var days: [(day: Date, files: [ShotFile])] = []
+    @State private var counts: [Scope: Int] = [:]
 
     /// How the grid is split into sections; each section header can select all of its screenshots.
     enum Grouping: String, CaseIterable, Identifiable {
@@ -68,16 +73,17 @@ struct ManagerView: View {
         }
     }
 
-    private var shown: [ShotFile] {
-        files.filter { scope.matches($0) && (search.isEmpty || $0.url.lastPathComponent.localizedCaseInsensitiveContains(search)) }
-    }
-
-    /// Newest group first (day, week or month); each group newest first.
-    private var days: [(day: Date, files: [ShotFile])] {
+    private func refilter() {
+        let all: [Scope] = [.all, .today, .week, .old, .kept] + folders.map(Scope.folder)
+        counts = Dictionary(uniqueKeysWithValues: all.map { scope in (scope, files.count { scope.matches($0) }) })
+        shown = files.filter { scope.matches($0) && (search.isEmpty || $0.url.lastPathComponent.localizedCaseInsensitiveContains(search)) }
+        // Newest group first (day, week or month); each group newest first.
         let cal = Calendar.current
-        return Dictionary(grouping: shown) { cal.dateInterval(of: grouping.component, for: $0.date)?.start ?? cal.startOfDay(for: $0.date) }
+        days = Dictionary(grouping: shown) { cal.dateInterval(of: grouping.component, for: $0.date)?.start ?? cal.startOfDay(for: $0.date) }
             .map { ($0.key, $0.value) }
             .sorted { $0.day > $1.day }
+        // Never act on screenshots you can't see.
+        selection.formIntersection(shown.map(\.url))
     }
 
     /// Watched folders first, then their subfolders alphabetically.
@@ -104,7 +110,11 @@ struct ManagerView: View {
         .tint(Theme.success)
         .task { await reload() }
         .modifier(ShowsDockIcon())
-        .onChange(of: scope) { selection = [] }
+        .onChange(of: scope) { selection = []; refilter() }
+        .onChange(of: search) { refilter() }
+        .onChange(of: grouping) { refilter() }
+        // New, renamed or undone screenshots show up without pressing Refresh.
+        .onChange(of: state.history.first?.id) { Task { await reload() } }
         .onKeyPress(.escape) { selection = []; return .handled }
         .onKeyPress(characters: ["a"], phases: .down) { press in
             guard press.modifiers.contains(.command) else { return .ignored }
@@ -155,7 +165,7 @@ struct ManagerView: View {
     }
 
     private func scopeItem(_ item: Scope, icon: String) -> some View {
-        ScopeRow(title: item.title, icon: icon, count: files.filter(item.matches).count, selected: scope == item) {
+        ScopeRow(title: item.title, icon: icon, count: counts[item] ?? 0, selected: scope == item) {
             scope = item
         }
     }
@@ -366,21 +376,32 @@ struct ManagerView: View {
     }
 
     private func trash(_ urls: [URL]) {
-        var moved: [(URL, URL)] = []
-        for url in urls {
-            var trashed: NSURL?
-            if (try? FileManager.default.trashItem(at: url, resultingItemURL: &trashed)) != nil, let t = trashed as URL? {
-                moved.append((url, t))
-            }
+        Task {
+            // Hundreds of files take a moment: move them off the main thread.
+            let moved = await Task.detached(priority: .userInitiated) { () -> [(original: URL, trashed: URL)] in
+                urls.compactMap { url in
+                    var trashed: NSURL?
+                    guard (try? FileManager.default.trashItem(at: url, resultingItemURL: &trashed)) != nil,
+                          let t = trashed as URL? else { return nil }
+                    return (url, t)
+                }
+            }.value
+            finishTrash(moved)
         }
+    }
+
+    private func finishTrash(_ moved: [(original: URL, trashed: URL)]) {
         guard !moved.isEmpty else { return }
         Self.trashSound?.play()
-        let gone = Set(moved.map(\.0))
+        let gone = Set(moved.map(\.original))
         withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
             files.removeAll { gone.contains($0.url) }
             selection.subtract(gone)
+            refilter()
         }
-        undo = (moved.count, moved)
+        // A second delete while Undo is still showing adds to it, so Undo brings back both.
+        let items = (undo?.items ?? []) + moved
+        undo = (items.count, items)
         undoTask?.cancel()
         undoTask = Task {
             try? await Task.sleep(nanoseconds: 6_000_000_000)
@@ -439,7 +460,7 @@ struct ManagerView: View {
             return out.sorted { $0.date > $1.date }
         }.value
         files = found
-        selection = selection.intersection(found.map(\.url))
+        refilter()
         loading = false
     }
 
@@ -537,7 +558,8 @@ enum Thumbnails {
 
     static func image(for url: URL) async -> NSImage? {
         if let hit = cache.object(forKey: url as NSURL) { return hit }
-        let request = QLThumbnailGenerator.Request(fileAt: url, size: CGSize(width: 240, height: 150),
+        // Big enough for the largest tile (300 pt × 1.4), so large tiles stay sharp.
+        let request = QLThumbnailGenerator.Request(fileAt: url, size: CGSize(width: 420, height: 263),
                                                    scale: NSScreen.main?.backingScaleFactor ?? 2, representationTypes: .thumbnail)
         guard let rep = try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request) else { return nil }
         cache.setObject(rep.nsImage, forKey: url as NSURL)

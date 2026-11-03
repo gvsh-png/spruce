@@ -171,7 +171,7 @@ enum TextRules {
     static func cleaned(_ s: Suggestion) -> Suggestion? {
         // Models sometimes pack several words into one entry ("cloud server m2"): split first, then cap.
         let words = s.words.flatMap { $0.split(separator: " ").map(String.init) }
-            .filter { !bannedWords.contains($0.lowercased()) }.prefix(maxWords).map { $0 }
+            .filter { !bannedWords.contains($0.lowercased().filter(\.isLetter)) }.prefix(maxWords).map { $0 } // letters only: "Screenshot:", "screen-shot"
         return words.isEmpty ? nil : Suggestion(words: words, folder: s.folder, kind: s.kind)
     }
 
