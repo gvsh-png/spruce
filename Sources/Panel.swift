@@ -258,6 +258,9 @@ struct IslandView: View {
             .help("Click to open, drag into any app")
             // Drag into Slack, Mail, Finder…: the name is applied first, so the file arrives renamed.
             .onDrag {
+                // No preview while dragging: it would sit under the drag and over where you drop.
+                peekTask?.cancel()
+                peeking = false
                 let url = state.applyCaptureNow(stem: name) ?? capture.url
                 return NSItemProvider(contentsOf: url) ?? NSItemProvider()
             }
@@ -273,7 +276,8 @@ struct IslandView: View {
                             OCR.thumbnail(of: url, maxPixel: 800).flatMap(NSImage.init(data:))
                         }.value
                         try? await Task.sleep(nanoseconds: UInt64(state.prefs.peekDelay * 1_000_000_000))
-                        if Task.isCancelled { return }
+                        // Not while a button is down: that's a drag (or a click) in progress.
+                        if Task.isCancelled || NSEvent.pressedMouseButtons != 0 { return }
                         if peekImage == nil { peekImage = await image }
                         peeking = true
                     }

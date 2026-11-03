@@ -19,9 +19,9 @@ Spruce reads each new screenshot on your Mac and gives it a real name, so<br>
 
 <br>
 
-<img src="docs/media/demo.gif" width="800" alt="A new screenshot appears in Spruce's pill at the top of the screen, and its name is written while you watch">
+<img src="docs/media/demo.gif" width="800" alt="A new screenshot grows out of the notch in Spruce's pill, and its name is written while you watch">
 
-<sub>Take a screenshot. A small pill drops in, reads it, and names it. <a href="https://gvsh-png.github.io/spruce/media/demo.mp4">Watch in full quality</a>.</sub>
+<sub>Take a screenshot. The pill grows out of the notch, reads it, and names it. <a href="https://gvsh-png.github.io/spruce/media/demo.mp4">Watch in full quality</a>.</sub>
 
 </div>
 
@@ -37,72 +37,82 @@ Spruce installs into `/Applications`, opens, and lives in your menu bar. From th
 
 ## Features
 
+On a Mac with a notch, the pill grows out of the notch. Everywhere else it floats just under the menu bar.
+
 <table>
 <tr>
-<td width="50%" valign="top">
-<img src="docs/media/naming.gif" width="100%" alt="The pill reads a chat screenshot and names it">
-<b>Names it while you watch</b><br>
-<sub>Text is read on your Mac, then a model writes the name. Click it to change it.</sub>
-</td>
 <td width="50%" valign="top">
 <img src="docs/media/actions.gif" width="100%" alt="Hovering the pill shows Keep, Copy, Copy Text, Move and Delete">
 <b>Everything one hover away</b><br>
 <sub>Keep, Copy, Copy Text, Move to a folder, or Delete.</sub>
 </td>
+<td width="50%" valign="top">
+<img src="docs/media/copy-name.gif" width="100%" alt="Dragging the thumbnail into a chat drops the file under its new name">
+<b>Arrives with its name</b><br>
+<sub>Drag or copy it into Slack, Mail or Finder and it lands as <code>coffee-order-total-paid-date.png</code>, not <code>image.png</code>.</sub>
+</td>
 </tr>
 <tr>
-<td valign="top">
-<img src="docs/media/peek.gif" width="100%" alt="Resting on the thumbnail shows a larger preview">
-<b>Peek</b><br>
-<sub>Rest on the thumbnail for a bigger look. Drag it straight into Slack or Mail.</sub>
+<td width="50%" valign="top">
+<img src="docs/media/title-case.gif" width="100%" alt="A Title Case name keeps GitHub and iPhone spelled right, with the date in front">
+<b>Title Case that spells names right</b><br>
+<sub>GitHub, iPhone and PDF, not Github, Iphone and Pdf. Names you type stay exactly as typed.</sub>
 </td>
-<td valign="top">
+<td width="50%" valign="top">
 <img src="docs/media/delete.gif" width="100%" alt="Delete moves the screenshot to the Trash with an Undo button">
 <b>Delete without worry</b><br>
 <sub>Goes to the Trash, with Undo right there.</sub>
 </td>
 </tr>
 <tr>
-<td valign="top">
+<td width="50%" valign="top">
 <img src="docs/media/qr.gif" width="100%" alt="A screenshot with a QR code gets an Open button">
 <b>QR codes open in one click</b><br>
 <sub>Links open in your browser. Anything else, like Wi-Fi details, is copied.</sub>
 </td>
-<td valign="top">
+<td width="50%" valign="top">
 <img src="docs/media/burst.gif" width="100%" alt="A second screenshot of the same thing replaces the first">
 <b>No piles of duplicates</b><br>
 <sub>Took the same shot twice? The older one goes to the Trash. Click "−1 similar" to bring it back.</sub>
 </td>
 </tr>
+</table>
+
+<table>
 <tr>
-<td colspan="2" valign="top">
+<td width="50%" valign="top">
+<img src="docs/media/redact.gif" width="100%" alt="Redact covers an email, a phone number and an API key, then Peek shows the result">
+<b>Redact in one click</b><br>
+<sub>Emails, phone and card numbers, IBANs and API keys get covered and the clean copy is on your clipboard. Undo brings the original back.</sub>
+</td>
+<td width="50%" valign="top">
+<img src="docs/media/peek.gif" width="100%" alt="Resting on the thumbnail shows a larger preview">
+<b>Peek</b><br>
+<sub>Rest on the thumbnail for a bigger look.</sub>
+</td>
+</tr>
+</table>
+
+<p><img src="docs/media/search.gif" width="100%" alt="Searching the Manager for lindqvist finds an invoice by a word that is only in the picture, then iphone finds a pull request"></p>
+<p><b>Search inside your screenshots</b><br>
+<sub>Type a word you remember seeing and the Manager finds it, even when the name doesn't say it. The words are highlighted on the thumbnail. The text stays on your Mac.</sub></p>
+
 <table><tr>
 <td width="68%" valign="top"><img src="docs/media/scroll.gif" width="100%" alt="Dragging over a chat, scrolling, and pressing Done"></td>
 <td width="32%" valign="top"><img src="docs/media/scroll-result.png" width="100%" alt="The saved scroll capture: the whole chat in one tall image"></td>
 </tr></table>
-<b>Scroll capture</b> · <kbd>⌥</kbd><kbd>⇧</kbd><kbd>⌘</kbd><kbd>4</kbd><br>
-<sub>Drag over a chat or a page, scroll, press Done. One tall screenshot, named like any other. Sticky headers show up once.</sub>
-</td>
-</tr>
-<tr>
-<td colspan="2" valign="top">
-<img src="docs/media/manager.gif" width="100%" alt="Screenshot Manager grouped by week, selecting a week, deleting it and undoing">
-<b>Screenshot Manager</b><br>
-<sub>Every screenshot by day, week or month. Select a whole week, delete it, change your mind.</sub>
-</td>
-</tr>
-</table>
+<p><b>Scroll capture</b> · <kbd>⌥</kbd><kbd>⇧</kbd><kbd>⌘</kbd><kbd>4</kbd><br>
+<sub>Drag over a chat or a page, scroll, press Done. One tall screenshot, named like any other. Sticky headers show up once.</sub></p>
+
+<p><img src="docs/media/manager.gif" width="100%" alt="Screenshot Manager grouped by week, selecting a week, deleting it and undoing"></p>
+<p><b>Screenshot Manager</b><br>
+<sub>Every screenshot by day, week or month. Select a whole week, delete it, change your mind.</sub></p>
 
 **Also in the box**
 
 - Copies each screenshot to the clipboard the moment it's saved
 - Screenshots go to the Trash after 14 days unless you keep, move or sort them
 - Private apps: shots of 1Password, Messages and anything you add keep their name and are never read
-- Redact in one click: emails, phone and card numbers, IBANs and API keys are covered, and the result is copied. Undo brings back the original
-- Search inside screenshots: the Manager finds the words in the picture, not just the name, and highlights them
-- Copy pastes the named file: Finder, Mail and chat apps get `booking-lisbon.png`, not `image.png`
-- Title Case keeps real spellings like GitHub, iPhone and PDF, and names you type stay as typed
-- On a Mac with a notch, the pill grows out of the notch
 - Finder tags by kind (Chat, Code, Receipt, Document, …) and optional sorting into your folders
 - Rename the screenshots you already have, all at once, as one Undo
 - Full rename history, every step undoable
