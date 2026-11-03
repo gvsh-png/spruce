@@ -100,6 +100,10 @@ do {
         last = next
     }
     check(out == header + Array(page[0..<400]) + footer, "stitched page equals the original")
+    let all = Stitch.Rows(hashes: out, flat: out.map { _ in false })
+    check(Stitch.contains(all, frame(120)), "a frame from higher up is already captured")
+    let unseen = (0..<96).map { UInt64(9_000_000 + $0) }
+    check(!Stitch.contains(all, Stitch.Rows(hashes: unseen, flat: unseen.map { _ in false })), "new content is not")
 
     // Blank rows (a white gap in the page) never decide a match on their own.
     let blank = Stitch.Rows(hashes: Array(repeating: 5, count: 96), flat: Array(repeating: true, count: 96))

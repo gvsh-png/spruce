@@ -26,18 +26,40 @@ enum Stitch {
         (m.footer, (height - m.footer - m.scrolled)..<height)
     }
 
-    /// Fingerprints every row of a 32-bit pixel buffer. `columns` limits the hash to the left part
-    /// of each row, so the overlay scrollbar that flashes at the right edge while scrolling is ignored.
-    static func rows(_ pixels: UnsafeRawBufferPointer, width: Int, height: Int, bytesPerRow: Int, columns: Int) -> Rows {
+    /// True when `next` shows content already in the image (`out`), e.g. after scrolling back up.
+    /// Then nothing was missed; only a frame that fits nowhere means part of the page was skipped.
+    static func contains(_ out: Rows, _ next: Rows) -> Bool {
+        var index: [UInt64: [Int]] = [:]
+        for (i, h) in out.hashes.enumerated() where !out.flat[i] { index[h, default: []].append(i) }
+        // Anchor on a few distinctive rows from the middle of the frame (clear of fixed bars).
+        let middle = Array(next.count / 4..<max(next.count / 4 + 1, next.count * 3 / 4))
+        let anchors = middle.filter { !next.flat[$0] }.prefix(3)
+        for a in anchors {
+            for p in index[next.hashes[a]] ?? [] {
+                let offset = p - a
+                var informative = 0, agree = 0
+                for j in middle where offset + j >= 0 && offset + j < out.count && !next.flat[j] {
+                    informative += 1
+                    if out.hashes[offset + j] == next.hashes[j] { agree += 1 }
+                }
+                if informative >= 8, Double(agree) >= 0.8 * Double(informative) { return true }
+            }
+        }
+        return false
+    }
+
+    /// Fingerprints every row of a 32-bit pixel buffer, over `columns` only. Leaving out the right
+    /// edge ignores the overlay scrollbar that flashes there while scrolling.
+    static func rows(_ pixels: UnsafeRawBufferPointer, height: Int, bytesPerRow: Int, columns: Range<Int>) -> Rows {
         var hashes = [UInt64](repeating: 0, count: height)
         var flat = [Bool](repeating: true, count: height)
-        let used = max(1, min(columns, width))
+        guard !columns.isEmpty else { return Rows(hashes: hashes, flat: flat) }
         for y in 0..<height {
             let row = pixels.baseAddress!.advanced(by: y * bytesPerRow).assumingMemoryBound(to: UInt32.self)
-            let first = row[0]
+            let first = row[columns.lowerBound]
             var hash: UInt64 = 0xcbf2_9ce4_8422_2325
             var same = true
-            for x in 0..<used {
+            for x in columns {
                 let px = row[x]
                 hash = (hash ^ UInt64(px)) &* 0x100_0000_01b3
                 same = same && px == first

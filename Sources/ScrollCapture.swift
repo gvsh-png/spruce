@@ -1,11 +1,12 @@
 import AppKit
 import Carbon.HIToolbox
+import CoreMedia
 import ScreenCaptureKit
 import SwiftUI
 
-/// Scroll capture: drag over a scrollable area, scroll through it as usual, press Done. Spruce takes
-/// a frame every ~80 ms, keeps only the rows that scrolled into view, and saves one tall screenshot
-/// into the screenshot folder, where it is named like any other.
+/// Scroll capture: drag over a scrollable area, scroll through it as usual, press Done. A 30 fps
+/// ScreenCaptureKit stream of just that area feeds the stitcher, which keeps only the rows that
+/// scrolled into view. The result is saved into the screenshot folder and named like any other.
 @MainActor
 final class ScrollCapture {
     static let shared = ScrollCapture()
@@ -19,8 +20,11 @@ final class ScrollCapture {
 
     private var overlay: Overlay?
     private var controls: NSPanel?
-    private var loop: Task<Void, Never>?
+    private var stream: SCStream?
+    private var sink: FrameSink?
     private var stitcher: Stitcher?
+    /// Frames are stitched here, one at a time, off the main thread.
+    private let queue = DispatchQueue(label: "spruce.scroll-capture", qos: .userInteractive)
     private var previousApp: NSRunningApplication?
     private weak var state: AppState?
     private let status = Status()
@@ -51,14 +55,23 @@ final class ScrollCapture {
         status.full = false
         showControls(below: rect, on: screen)
 
-        let stitcher = Stitcher(scrollbarPoints: 16 * screen.backingScaleFactor)
+        let stitcher = Stitcher(scrollbarPixels: Int(16 * screen.backingScaleFactor))
         self.stitcher = stitcher
         let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
         // ScreenCaptureKit measures from the display's top-left corner, in points.
         let source = CGRect(x: rect.minX - screen.frame.minX, y: screen.frame.maxY - rect.maxY, width: rect.width, height: rect.height)
         let scale = screen.backingScaleFactor
+        let sink = FrameSink(stitcher: stitcher) { [weak self] progress in
+            DispatchQueue.main.async {
+                guard let self, self.stitcher === stitcher else { return }
+                self.status.pixels = progress.height
+                self.status.lost = progress.missed
+                if progress.full { self.status.full = true; self.stop(save: true) }
+            }
+        }
+        self.sink = sink
 
-        loop = Task { [weak self] in
+        Task { [weak self] in
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
                 guard let display = content.displays.first(where: { $0.displayID == displayID }) else { return }
@@ -69,17 +82,16 @@ final class ScrollCapture {
                 config.sourceRect = source
                 config.width = Int(source.width * scale)
                 config.height = Int(source.height * scale)
+                config.minimumFrameInterval = CMTime(value: 1, timescale: 30) // fast flicks still overlap
+                config.queueDepth = 3
+                config.pixelFormat = kCVPixelFormatType_32BGRA
+                config.colorSpaceName = CGColorSpace.sRGB
                 config.showsCursor = false
-                while !Task.isCancelled {
-                    let frame = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
-                    let result = await stitcher.add(frame)
-                    guard let self, !Task.isCancelled else { return }
-                    status.pixels = result.height
-                    status.lost = result.lost
-                    if result.full { status.full = true; return stop(save: true) }
-                    try await Task.sleep(nanoseconds: 80_000_000)
-                }
-            } catch is CancellationError {
+                guard let self, self.stitcher === stitcher else { return }
+                let stream = SCStream(filter: filter, configuration: config, delegate: nil)
+                try stream.addStreamOutput(sink, type: .screen, sampleHandlerQueue: self.queue)
+                self.stream = stream
+                try await stream.startCapture()
             } catch {
                 self?.state?.lastError = "Scroll capture stopped: \(error.localizedDescription)"
                 self?.stop(save: false)
@@ -88,23 +100,26 @@ final class ScrollCapture {
     }
 
     func stop(save: Bool) {
-        loop?.cancel()
-        loop = nil
+        let stream = self.stream
+        self.stream = nil
+        sink = nil
         overlay?.orderOut(nil)
         overlay = nil
         controls?.orderOut(nil)
         controls = nil
-        guard save, let stitcher, let state else { self.stitcher = nil; return }
+        let stitcher = self.stitcher
         self.stitcher = nil
-        let folder = URL(fileURLWithPath: state.prefs.watchFolders.first ?? Preferences.systemScreenshotFolder, isDirectory: true)
-        Task {
-            // Encoding a tall PNG takes a moment; do it off the main thread.
-            let saved = await Task.detached(priority: .userInitiated) { () -> Result<URL, Error>? in
-                guard let image = await stitcher.image() else { return nil }
-                return Result { try Self.write(image, into: folder) }
-            }.value
+        let folder = state.map { URL(fileURLWithPath: $0.prefs.watchFolders.first ?? Preferences.systemScreenshotFolder, isDirectory: true) }
+        let queue = self.queue
+        Task { [weak state] in
+            try? await stream?.stopCapture() // no frames arrive after this
+            guard save, let stitcher, let folder else { return }
+            // Building and encoding a tall PNG takes a moment; do it on the stitching queue.
+            let saved: Result<URL, Error>? = await withCheckedContinuation { done in
+                queue.async { done.resume(returning: stitcher.image().map { image in Result { try Self.write(image, into: folder) } }) }
+            }
             if case .failure(let error) = saved {
-                state.lastError = "Couldn't save the scroll capture: \(error.localizedDescription)"
+                state?.lastError = "Couldn't save the scroll capture: \(error.localizedDescription)"
             }
         }
     }
@@ -172,56 +187,114 @@ final class ScrollCapture {
     }
 }
 
-/// Holds the growing image. Runs off the main thread: each frame is decoded, fingerprinted and
-/// matched here, and only the newly visible rows are copied.
-private actor Stitcher {
+/// Receives the stream's frames on the stitching queue.
+private final class FrameSink: NSObject, SCStreamOutput {
+    let stitcher: Stitcher
+    let report: (Stitcher.Progress) -> Void
+
+    init(stitcher: Stitcher, report: @escaping (Stitcher.Progress) -> Void) {
+        self.stitcher = stitcher
+        self.report = report
+    }
+
+    func stream(_ stream: SCStream, didOutputSampleBuffer buffer: CMSampleBuffer, of type: SCStreamOutputType) {
+        // Only complete frames carry pixels; idle ones just say nothing changed.
+        guard type == .screen, buffer.isValid,
+              let info = (CMSampleBufferGetSampleAttachmentsArray(buffer, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]])?.first,
+              let raw = info[.status] as? Int, SCFrameStatus(rawValue: raw) == .complete,
+              let pixels = buffer.imageBuffer else { return }
+        report(stitcher.add(pixels))
+    }
+}
+
+/// Holds the growing image. Used only on the stitching queue: each frame is fingerprinted and
+/// matched, and only the newly visible rows are copied.
+private final class Stitcher {
+    struct Progress { var height: Int; var missed: Bool; var full: Bool }
+
     /// About 25,000 px tall at most (≈150 MB for a wide area); the capture finishes there.
     static let maxRows = 25_000
 
     private let scrollbar: Int
-    private var width = 0, bytesPerRow = 0
+    private var width = 0
     private var out: [UInt8] = []
+    /// Fingerprints of every row in `out`, to recognize frames that are already captured.
+    private var outRows = Stitch.Rows(hashes: [], flat: [])
     private var last: Stitch.Rows?
+    private var lastEdge: Stitch.Rows?
+    private var scrollbarSeen = false
+    private var missedSince: Date?
 
-    init(scrollbarPoints: CGFloat) { scrollbar = Int(scrollbarPoints) }
+    init(scrollbarPixels: Int) { scrollbar = scrollbarPixels }
 
-    func add(_ image: CGImage) -> (height: Int, lost: Bool, full: Bool) {
-        let w = image.width, h = image.height, bpr = w * 4
-        var frame = [UInt8](repeating: 0, count: bpr * h)
-        let drawn = frame.withUnsafeMutableBytes { buffer -> Bool in
-            guard let context = CGContext(data: buffer.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: bpr,
-                                          space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
-            context.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
-            return true
+    private var height: Int { outRows.count }
+
+    func add(_ buffer: CVPixelBuffer) -> Progress {
+        CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return Progress(height: height, missed: false, full: false) }
+        let w = CVPixelBufferGetWidth(buffer), h = CVPixelBufferGetHeight(buffer), bpr = CVPixelBufferGetBytesPerRow(buffer)
+        let frame = UnsafeRawBufferPointer(start: base, count: bpr * h)
+        let content = 0..<max(1, w - scrollbar)
+        let rows = Stitch.rows(frame, height: h, bytesPerRow: bpr, columns: content)
+        let edge = Stitch.rows(frame, height: h, bytesPerRow: bpr, columns: content.upperBound..<w)
+
+        func copy(_ range: Range<Int>) {
+            for y in range { out.append(contentsOf: UnsafeRawBufferPointer(start: base + y * bpr, count: w * 4)) }
+            outRows.hashes += rows.hashes[range]
+            outRows.flat += rows.flat[range]
         }
-        guard drawn else { return (out.count / max(bytesPerRow, 1), false, false) }
-        let rows = frame.withUnsafeBytes { Stitch.rows($0, width: w, height: h, bytesPerRow: bpr, columns: w - scrollbar) }
 
         guard let previous = last, width == w else {
             width = w
-            bytesPerRow = bpr
-            out = frame
+            out = []
+            outRows = Stitch.Rows(hashes: [], flat: [])
+            out.reserveCapacity(w * 4 * h * 4)
+            copy(0..<h)
             last = rows
-            return (h, false, false)
+            lastEdge = edge
+            return Progress(height: h, missed: false, full: false)
         }
-        // No match: scrolled too fast. Keep the last good frame so scrolling back a little recovers.
-        guard let match = Stitch.match(previous, rows) else { return (out.count / bpr, true, false) }
-        if match.scrolled > 0 {
-            let (drop, range) = Stitch.splice(height: h, match)
-            out.removeLast(drop * bpr)
-            out.append(contentsOf: frame[(range.lowerBound * bpr)..<(range.upperBound * bpr)])
-            last = rows
+
+        if let match = Stitch.match(previous, rows) {
+            missedSince = nil
+            // Content at the right edge scrolls with the page; a scrollbar doesn't. If the edge
+            // doesn't line up with the match, it's a scrollbar: crop it from the saved image.
+            if match.scrolled > 0, let lastEdge, !scrollbarSeen {
+                let overlap = h - match.footer - match.scrolled
+                let checked = overlap / 2..<overlap // the lower half: clear of any sticky header
+                let differ = checked.count { lastEdge.hashes[$0 + match.scrolled] != edge.hashes[$0] }
+                if differ * 5 > checked.count { scrollbarSeen = true }
+            }
+            if match.scrolled > 0 {
+                let (drop, range) = Stitch.splice(height: h, match)
+                out.removeLast(drop * w * 4)
+                outRows.hashes.removeLast(drop)
+                outRows.flat.removeLast(drop)
+                copy(range)
+                last = rows
+                lastEdge = edge
+            }
+        } else if Stitch.contains(outRows, rows) {
+            missedSince = nil // scrolled back up over what's already captured: nothing lost
+        } else {
+            // Part of the page went by between frames. Keep the last good frame, so scrolling
+            // back a little picks up again; only say so if it lasts.
+            missedSince = missedSince ?? Date()
         }
-        let height = out.count / bpr
-        return (height, false, height >= Self.maxRows)
+        let missed = missedSince.map { Date().timeIntervalSince($0) > 0.5 } ?? false
+        return Progress(height: height, missed: missed, full: height >= Self.maxRows)
     }
 
     func image() -> CGImage? {
-        guard bytesPerRow > 0, !out.isEmpty, let provider = CGDataProvider(data: Data(out) as CFData) else { return nil }
-        return CGImage(width: width, height: out.count / bytesPerRow, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: bytesPerRow,
-                       space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
-                       provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
+        guard width > 0, height > 0, let provider = CGDataProvider(data: Data(out) as CFData) else { return nil }
+        // The stream delivers BGRA: 32-bit little-endian with alpha first.
+        let image = CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
+                            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue),
+                            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
+        guard scrollbarSeen else { return image }
+        return image?.cropping(to: CGRect(x: 0, y: 0, width: width - scrollbar, height: height))
     }
 }
 
@@ -346,7 +419,7 @@ private struct ScrollControls: View {
     }
 
     private var message: String {
-        if status.lost { return "Too fast — scroll back up a little" }
+        if status.lost { return "Missed a bit — scroll up slightly" }
         if status.pixels == 0 { return "Starting…" }
         return "Scroll down · \(status.pixels.formatted()) px"
     }
