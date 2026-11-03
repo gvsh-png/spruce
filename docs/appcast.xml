@@ -3,6 +3,17 @@
     <channel>
         <title>Spruce</title>
         <item>
+            <title>0.1.4</title>
+            <pubDate>Tue, 03 Nov 2026 11:38:10 +0100</pubDate>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>0.1.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<p>Spruce now shows up in System Settings when scroll capture asks for Screen Recording.</p>
+]]></description>
+            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.4/Spruce.zip" length="1897406" type="application/octet-stream" sparkle:edSignature="7Qh/ozOmCC8yPIofnOcIEGxwZmhCC+ioBDkw2LdI6i+H4iVd/IMNkiNxonn19Ar2DxtbsScijdtKwOZwpVmDAA=="/>
+        </item>
+        <item>
             <title>0.1.3</title>
             <pubDate>Tue, 03 Nov 2026 11:33:09 +0100</pubDate>
             <sparkle:version>5</sparkle:version>
@@ -22,15 +33,6 @@
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
             <description><![CDATA[<p>Scroll capture (⌥⇧⌘4), QR codes open from the pill, bug fixes and speed-ups.</p>]]></description>
             <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.2/Spruce.zip" length="1892545" type="application/octet-stream" sparkle:edSignature="YpNMXHb5GAUWEFn6rb2q8Nz+r4QtLqMWnuLlj51DmEMIpD1UpA6Lggq396tqGesqDuBf9GLDA/6De2ljd7JSCQ=="/>
-        </item>
-        <item>
-            <title>0.1.1</title>
-            <pubDate>Mon, 02 Nov 2026 15:37:09 +0100</pubDate>
-            <sparkle:version>3</sparkle:version>
-            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.1/Spruce.zip" length="1829122" type="application/octet-stream" sparkle:edSignature="FU30dxkBM+9+4D2zfyGmkJq7xmP0z4BWU2hKR8j0/UDaYABx36LZTVq1+R+7XlnqsLTaMqo5ZqlITwWu04hXAQ=="/>
         </item>
     </channel>
 </rss>
