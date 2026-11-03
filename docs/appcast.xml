@@ -11,14 +11,5 @@
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
             <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.1/Spruce.zip" length="1829122" type="application/octet-stream" sparkle:edSignature="FU30dxkBM+9+4D2zfyGmkJq7xmP0z4BWU2hKR8j0/UDaYABx36LZTVq1+R+7XlnqsLTaMqo5ZqlITwWu04hXAQ=="/>
         </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Mon, 02 Nov 2026 15:31:13 +0100</pubDate>
-            <sparkle:version>2</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.0/Spruce.zip" length="1829124" type="application/octet-stream" sparkle:edSignature="IzGMR5zsEZZ1STNj8o3fo8hvM9YhuW7ayKpmYVgaT6phCxwd48mM7Kz5Cq3hqMQj/X5nWAhlLxfgM87S56WkCw=="/>
-        </item>
     </channel>
 </rss>
