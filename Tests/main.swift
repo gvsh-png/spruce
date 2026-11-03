@@ -87,7 +87,7 @@ do {
     check(Stitch.match(frame(0), frame(0)) == Stitch.Match(scrolled: 0, footer: 0), "unchanged frame")
     check(Stitch.match(frame(0), frame(17)) == Stitch.Match(scrolled: 17, footer: 6), "scrolled 17 rows past a header and footer")
     check(Stitch.match(frame(0), frame(79)) == nil, "scrolled too far to line up")
-    check(Stitch.match(frame(30), frame(10)) == nil, "scrolling up is ignored")
+    check(Stitch.match(frame(30), frame(10))?.scrolled == 0, "scrolling up adds nothing")
 
     // Stitch a whole session and compare with the real page.
     var out = frame(0).hashes, last = frame(0)
@@ -109,4 +109,44 @@ do {
     let blank = Stitch.Rows(hashes: Array(repeating: 5, count: 96), flat: Array(repeating: true, count: 96))
     check(Stitch.match(blank, blank) == Stitch.Match(scrolled: 0, footer: 0), "blank frames are unchanged")
 }
+// A chat whose avatar column repeats every 3 messages: the text strips must outvote it.
+do {
+    let messages = 120, rowsPerMessage = 12, h = 96
+    // Avatar strip: one of three colors per message. Text strip: unique per message and line.
+    let avatars = (0..<messages * rowsPerMessage).map { UInt64(($0 / rowsPerMessage) % 3 + 1) * 1_000 + UInt64($0 % rowsPerMessage) }
+    let text = (0..<messages * rowsPerMessage).map { UInt64($0) &* 2_654_435_761 &+ 99 }
+    let sidebar = (0..<h).map { UInt64(5_000_000 + $0) }
+    func frame(_ offset: Int) -> [Stitch.Rows] {
+        [Stitch.Rows(hashes: sidebar, flat: sidebar.map { _ in false }),
+         Stitch.Rows(hashes: Array(avatars[offset..<offset + h]), flat: Array(repeating: false, count: h)),
+         Stitch.Rows(hashes: Array(text[offset..<offset + h]), flat: Array(repeating: false, count: h))]
+    }
+    check(Stitch.step(frame(0), frame(14)) == Stitch.Match(scrolled: 14, footer: 0), "text outvotes the repeating avatar column")
+    check(Stitch.step(frame(36), frame(36)) == Stitch.Match(scrolled: 0, footer: 0), "a sidebar alone doesn't count as scrolling")
+}
+
+// Column votes: a sidebar (columns 0–1) stays, the page (2–6) scrolls, a scrollbar (7) flickers.
+do {
+    let w = 8, h = 60, d = 9
+    func pixels(offset: Int, thumb: UInt32) -> [UInt32] {
+        (0..<h).flatMap { y in
+            (0..<w).map { x -> UInt32 in
+                switch x {
+                case 0, 1: UInt32(100_000 + y * 7 + x)              // sidebar: the same in every frame
+                case 7: thumb &+ UInt32(y % 5)                       // scrollbar: different every frame
+                default: UInt32((y + offset) * 31 + x) &* 2_654_435_761 // page content
+                }
+            }
+        }
+    }
+    let prev = pixels(offset: 0, thumb: 1), next = pixels(offset: d, thumb: 50)
+    let votes = prev.withUnsafeBytes { p in next.withUnsafeBytes { n in
+        Stitch.columnVotes(prev: p, prevBytesPerRow: w * 4, next: n, nextBytesPerRow: w * 4, width: w, height: h, scrolled: d, top: 0, footer: 0)
+    } }
+    check(votes == [-1, -1, 1, 1, 1, 1, 1, 2], "sidebar stays, page scrolls, scrollbar conflicts: \(votes)")
+    let moved = votes.map { $0 == 1 ? 5 : 0 }, stayed = votes.map { $0 == -1 ? 5 : 0 }, conflicted = votes.map { $0 == 2 ? 5 : 0 }
+    check(Stitch.span(moved: moved, stayed: stayed, conflicted: conflicted, scrollbar: 1) == 2..<7, "crop keeps only the scrolling columns")
+    check(Stitch.span(moved: [0, 0], stayed: [0, 0], conflicted: [0, 0], scrollbar: 1) == nil, "nothing scrolled: keep everything")
+}
+
 print("All checks passed.")
