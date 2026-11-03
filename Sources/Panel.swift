@@ -89,6 +89,8 @@ struct IslandView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let openWidth: CGFloat = 360
+    /// Room for the extra Redact button; still inside `CapturePanel.width`.
+    private let wideWidth: CGFloat = 412
     private let rowHeight: CGFloat = 46
     private let toolsHeight: CGFloat = 34
 
@@ -97,6 +99,7 @@ struct IslandView: View {
         let deleted = capture?.trashedURL != nil
         let showTools = open && (showHover || editing) && capture?.proposal != nil && !deleted
         let height = open ? rowHeight + (showTools ? toolsHeight : 0) : rowHeight
+        let wide = offersRedact(capture)
 
         VStack(spacing: 8) {
             // Content is laid out top-down at full size and the island's frame reveals it.
@@ -114,7 +117,7 @@ struct IslandView: View {
             }
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 14)
-            .frame(width: open ? openWidth : geometry.closedWidth, height: height, alignment: .top)
+            .frame(width: open ? (wide ? wideWidth : openWidth) : geometry.closedWidth, height: height, alignment: .top)
             .background(shape.fill(.black))
             .clipShape(shape)
             // A hairline edge and soft shadow keep the pill readable over dark windows.
@@ -144,6 +147,7 @@ struct IslandView: View {
         .animation(.spring(response: 0.32, dampingFraction: 0.86), value: peeking)
         .animation(state.prefs.bouncy && !reduceMotion ? .spring(response: 0.38, dampingFraction: 0.78) : .easeInOut(duration: 0.25), value: open)
         .animation(.spring(response: 0.3, dampingFraction: 0.88), value: showTools)
+        .animation(.spring(response: 0.3, dampingFraction: 0.88), value: wide)
         // Delete eases out; Undo snaps straight back.
         .animation(deleted ? .spring(response: 0.34, dampingFraction: 0.85) : .snappy(duration: 0.18), value: deleted)
         // After Delete: show "Moved to Trash · Undo" briefly (paused by hover), then close.
@@ -163,6 +167,11 @@ struct IslandView: View {
         }
         .onChange(of: capture?.proposal?.id, initial: true) { name = state.capture?.proposal?.stem ?? "" }
         .onChange(of: name) { if state.capture?.proposal != nil { state.capture?.edited = name } }
+        // Redact and its Undo change the file: Peek decodes it again, and Copy shows what's on the clipboard.
+        .onChange(of: capture?.redactedOriginal) {
+            peekImage = nil
+            if state.capture?.redactedOriginal != nil { copied = "image" } else if copied == "image" { copied = nil }
+        }
         .task(id: capture?.proposal?.id) {
             guard capture?.proposal != nil else { return }
             var idle = 0.0
@@ -301,6 +310,11 @@ struct IslandView: View {
         }
     }
 
+    /// Redact shows only when OCR found something sensitive in this screenshot.
+    private func offersRedact(_ capture: Capture?) -> Bool {
+        state.prefs.offerRedact && !(capture?.proposal?.sensitive.isEmpty ?? true)
+    }
+
     private func tools(_ capture: Capture) -> some View {
         HStack(spacing: 6) {
             if state.prefs.expireEnabled {
@@ -316,6 +330,13 @@ struct IslandView: View {
                 copied = "text"
             }
             .disabled(capture.proposal?.text.isEmpty ?? true)
+            if offersRedact(capture), let count = capture.proposal?.sensitive.count {
+                let redacted = capture.redactedOriginal != nil
+                IslandButton(title: redacted ? "Redacted" : "Redact \(count)") {
+                    if redacted { state.undoRedact() } else { state.redactCapture() }
+                }
+                .help(redacted ? "Copied with \(count) hidden. Click to bring back the original." : "Hide emails, numbers and keys, then copy")
+            }
             Menu {
                 let here = capture.url.deletingLastPathComponent()
                 ForEach(state.prefs.folders, id: \.self) { folder in

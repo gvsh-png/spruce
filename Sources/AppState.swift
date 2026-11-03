@@ -22,6 +22,8 @@ struct Proposal: Identifiable {
     var keep = false
     /// What the QR codes in the screenshot say, if any.
     var codes: [String] = []
+    /// Where the emails, numbers and keys are, in Vision's normalized coordinates. Redact covers these.
+    var sensitive: [CGRect] = []
 }
 
 /// The screenshot shown in the capture panel right now.
@@ -37,6 +39,8 @@ struct Capture {
     var appliedURL: URL?
     /// Where the file went after Delete; non-nil while the island shows "Moved to Trash · Undo".
     var trashedURL: URL?
+    /// Where the original went after Redact; non-nil while the redacted copy is in its place.
+    var redactedOriginal: URL?
     /// What the user typed in the name field, so a newer screenshot arriving mid-edit doesn't lose it.
     var edited: String?
 }
@@ -89,6 +93,8 @@ final class AppState {
     /// The last live capture that was applied, for burst detection.
     private var lastLive: (id: UUID, words: Set<String>, app: String?, date: Date)?
     private var expiryTimer: Timer?
+    /// True while Redact is drawing and writing, so a double click doesn't redact twice.
+    private var redacting = false
 
     init() {
         prefs = Preferences.load()
@@ -234,6 +240,61 @@ final class AppState {
         }
     }
 
+    /// Covers the emails, numbers and keys OCR found and puts the cleaned image on the clipboard.
+    /// The redacted copy takes the file's place (same name, same flags); the original goes to the Trash,
+    /// so Undo can bring it back.
+    func redactCapture() {
+        guard !redacting, let current = capture, current.trashedURL == nil, current.redactedOriginal == nil,
+              let boxes = current.proposal?.sensitive, !boxes.isEmpty else { return }
+        let file = current.appliedURL ?? current.url, style = prefs.redactStyle
+        redacting = true
+        Task {
+            defer { redacting = false }
+            let data = await Task.detached(priority: .userInitiated) { Redactor.render(file, boxes: boxes, style: style) }.value
+            // Moved on meanwhile (closed, deleted, dragged out under a new name): leave the file alone.
+            guard let capture, capture.url == current.url, (capture.appliedURL ?? capture.url) == file,
+                  capture.trashedURL == nil else { return }
+            guard let data else {
+                lastError = "Couldn't redact “\(file.lastPathComponent)”."
+                return
+            }
+            // Written next to the file under a dot name (the watcher skips those), then renamed into place.
+            let temp = file.deletingLastPathComponent().appendingPathComponent(".\(UUID().uuidString).\(file.pathExtension)")
+            do {
+                try data.write(to: temp)
+                Redactor.copyAttributes(from: file, to: temp)
+                var trashed: NSURL?
+                try FileManager.default.trashItem(at: file, resultingItemURL: &trashed)
+                do {
+                    try FileManager.default.moveItem(at: temp, to: file)
+                } catch {
+                    if let trashed { try? FileManager.default.moveItem(at: trashed as URL, to: file) }
+                    throw error
+                }
+                self.capture?.redactedOriginal = trashed as URL?
+                self.capture?.thumbnail = OCR.thumbnail(of: file, maxPixel: 240).flatMap(NSImage.init(data:))
+                Self.copyToClipboard(file)
+            } catch {
+                try? FileManager.default.removeItem(at: temp)
+                lastError = "Couldn't redact “\(file.lastPathComponent)”: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// Undo for Redact: the original comes back from the Trash in place of the redacted copy.
+    func undoRedact() {
+        guard let current = capture, let original = current.redactedOriginal, current.trashedURL == nil else { return }
+        let file = current.appliedURL ?? current.url
+        do {
+            try FileManager.default.removeItem(at: file)
+            try FileManager.default.moveItem(at: original, to: file)
+            capture?.redactedOriginal = nil
+            capture?.thumbnail = OCR.thumbnail(of: file, maxPixel: 240).flatMap(NSImage.init(data:))
+        } catch {
+            lastError = "Couldn't put the original “\(file.lastPathComponent)” back. It's in the Trash."
+        }
+    }
+
     /// Closes the island without renaming anything.
     func dismissCapture() {
         capture = nil
@@ -253,8 +314,8 @@ final class AppState {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
 
         // 1. OCR on-device, off the main thread.
-        let lines: [OCRLine], codes: [String]
-        do { (lines, codes) = try await Task.detached(priority: .utility) { try OCR.read(url) }.value }
+        let lines: [OCRLine], codes: [String], sensitive: [CGRect]
+        do { (lines, codes, sensitive) = try await Task.detached(priority: .utility) { try OCR.read(url) }.value }
         catch {
             lastError = "Skipped “\(url.lastPathComponent)”: it isn't a readable image."
             return nil
@@ -298,7 +359,7 @@ final class AppState {
         }
         let fullText = TextRules.fullText(lines)
         return Proposal(url: url, stem: stem, dir: dir, provider: provider,
-                        kind: TextRules.matchKind(suggestion?.kind), text: fullText, words: TextRules.wordSet(fullText), codes: codes)
+                        kind: TextRules.matchKind(suggestion?.kind), text: fullText, words: TextRules.wordSet(fullText), codes: codes, sensitive: sensitive)
     }
 
     /// The only step that changes the file: mark, move, tag, log.

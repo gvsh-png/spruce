@@ -71,6 +71,28 @@ check(!TextRules.isBurst(shot, TextRules.wordSet("invoice northwind hosting tota
 check(!TextRules.isBurst(TextRules.wordSet("ok"), TextRules.wordSet("ok")), "text-free shots never collapse")
 check(TextRules.isBurst(shot, edited) == (Double(shot.intersection(edited).count) / Double(shot.union(edited).count) >= 0.7), "threshold applied")
 
+// Sensitive text (Redact)
+func sensitive(_ s: String) -> [String] { TextRules.sensitiveRanges(s).map { String(s[$0]) } }
+check(sensitive("Write to alice.jensen@northwind.io today") == ["alice.jensen@northwind.io"], "email")
+check(sensitive("Card 4242 4242 4242 4242 exp 12/28") == ["4242 4242 4242 4242"], "card number")
+check(sensitive("Card 4242 4242 4242 4241").isEmpty, "card number failing Luhn")
+check(sensitive("Call +47 912 34 567 or (415) 555-0132") == ["+47 912 34 567", "(415) 555-0132"], "phone numbers")
+check(sensitive("IBAN DE89 3704 0044 0532 0130 00 EUR") == ["DE89 3704 0044 0532 0130 00"], "spaced IBAN stops before the next word")
+check(sensitive("GB82WEST12345698765432") == ["GB82WEST12345698765432"], "compact IBAN")
+check(sensitive("GB82WEST12345698765433").isEmpty, "IBAN with a bad checksum")
+check(sensitive("export OPENAI_API_KEY=sk-proj-a1B2c3D4e5F6g7H8i9J0kLmN") == ["sk-proj-a1B2c3D4e5F6g7H8i9J0kLmN"], "API key")
+check(sensitive("token ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789 ok") == ["ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"], "GitHub token")
+check(sensitive("AKIAIOSFODNN7EXAMPLE") == ["AKIAIOSFODNN7EXAMPLE"], "AWS key")
+let jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+check(sensitive("Bearer \(jwt)") == [jwt], "JWT is one range")
+check(sensitive("secret x7Kp2Lm9Qr4Tv8Wz1Bn5Cd3Fg6Hj0Ys2Ae") == ["x7Kp2Lm9Qr4Tv8Wz1Bn5Cd3Fg6Hj0Ys2Ae"], "random-looking token")
+for safe in ["Screenshot 2026-10-30 at 14.09.49", "macOS 14.2.1 (23C71) build 1234567890", "Order #12345678 total $1,234.56",
+             "commit a94a8fe5ccb19ba61c4c0873d391e987982fbbd3", "spruce-one-click-auto-redact-for-screenshots-v2",
+             "Meeting 10:30-11:45 room 4", "risk-assessment-framework-for-the-whole-team", "Version 1.2.3.4567 released 2026.11.02",
+             "Ticket ID 12 345 678", ""] {
+    check(sensitive(safe).isEmpty, "nothing sensitive in \"\(safe)\": \(sensitive(safe))")
+}
+
 // Prompt
 check(Prompt.system(folders: ["Receipts"]).contains("\"Receipts\""), "folders listed in prompt")
 check(Prompt.system(folders: []).contains("Always set \"folder\" to null"), "no folders")
