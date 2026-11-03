@@ -117,7 +117,7 @@ struct MenuView: View {
     private var statusText: String {
         switch state.status {
         case .processing: state.queued > 0 ? "Renaming… \(state.queued) waiting" : "Renaming…"
-        case .watching: "Watching \(state.prefs.watchFolders.map(fileName).joined(separator: ", "))"
+        case .watching: "Renaming new screenshots in \(state.prefs.watchFolders.map(fileName).joined(separator: ", "))"
         case .paused: "Paused"
         }
     }
@@ -204,7 +204,7 @@ struct SettingsView: View {
             Spacer()
             HStack(spacing: 7) {
                 Circle().fill(state.prefs.watching ? Theme.success : Theme.tertiary).frame(width: 7, height: 7)
-                Text(state.prefs.watching ? "Watching" : "Paused").font(Theme.detail).foregroundStyle(Theme.secondary)
+                Text(state.prefs.watching ? "Renaming on" : "Paused").font(Theme.detail).foregroundStyle(Theme.secondary)
             }
             .padding(.horizontal, 10)
         }
