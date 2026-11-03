@@ -11,6 +11,10 @@ struct ShotFile: Identifiable, Hashable {
     let kept: Bool
     /// The folder it sits in, relative to its watched folder ("Screenshots", "Receipts", "Work/Slack").
     let folder: String
+    /// Spruce handled it, so it isn't a private-app screenshot and may be read for search.
+    let handled: Bool
+    /// Its saved OCR text; nil until it has been read.
+    var text: SearchableText?
 }
 
 /// Screenshot Manager: browse every screenshot in the watched folders (including sorted and Kept
@@ -32,6 +36,12 @@ struct ManagerView: View {
     @State private var shown: [ShotFile] = []
     @State private var days: [(day: Date, files: [ShotFile])] = []
     @State private var counts: [Scope: Int] = [:]
+    /// Why each shown screenshot matched the search: boxes to highlight and a one-line snippet.
+    @State private var hits: [URL: TextHit] = [:]
+    /// Older screenshots without saved text, read in the background the first time you search.
+    @State private var backfill: Task<Void, Never>?
+    @State private var reading = 0
+    @State private var tried = Set<URL>()
 
     /// How the grid is split into sections; each section header can select all of its screenshots.
     enum Grouping: String, CaseIterable, Identifiable {
@@ -76,7 +86,17 @@ struct ManagerView: View {
     private func refilter() {
         let all: [Scope] = [.all, .today, .week, .old, .kept] + folders.map(Scope.folder)
         counts = Dictionary(uniqueKeysWithValues: all.map { scope in (scope, files.count { scope.matches($0) }) })
-        shown = files.filter { scope.matches($0) && (search.isEmpty || $0.url.lastPathComponent.localizedCaseInsensitiveContains(search)) }
+        // Every word you type must be in the name or somewhere in the screenshot's text.
+        let tokens = TextRules.searchTokens(search)
+        var found: [URL: TextHit] = [:]
+        shown = files.filter { f in
+            guard scope.matches(f) else { return false }
+            guard !tokens.isEmpty else { return true }
+            guard let hit = TextRules.search(tokens, name: f.url.lastPathComponent, text: f.text) else { return false }
+            found[f.url] = hit
+            return true
+        }
+        hits = found
         // Newest group first (day, week or month); each group newest first.
         let cal = Calendar.current
         days = Dictionary(grouping: shown) { cal.dateInterval(of: grouping.component, for: $0.date)?.start ?? cal.startOfDay(for: $0.date) }
@@ -111,7 +131,8 @@ struct ManagerView: View {
         .task { await reload() }
         .modifier(ShowsDockIcon())
         .onChange(of: scope) { selection = []; refilter() }
-        .onChange(of: search) { refilter() }
+        .onChange(of: search) { refilter(); readOlderText() }
+        .onDisappear { backfill?.cancel() }
         .onChange(of: grouping) { refilter() }
         // New, renamed or undone screenshots show up without pressing Refresh.
         .onChange(of: state.history.first?.id) { Task { await reload() } }
@@ -178,14 +199,15 @@ struct ManagerView: View {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(scope.title).font(Theme.title).foregroundStyle(Theme.text).lineLimit(1)
-                    Text("\(shown.count) screenshots · \(byteString(shown.reduce(0) { $0 + $1.size }))")
+                    Text("\(shown.count) screenshots · \(byteString(shown.reduce(0) { $0 + $1.size }))"
+                         + (reading > 0 ? " · Reading \(reading) older screenshot\(reading == 1 ? "" : "s")…" : ""))
                         .font(Theme.detail).foregroundStyle(Theme.secondary).lineLimit(1)
                 }
                 .layoutPriority(1)
                 Spacer(minLength: 12)
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.tertiary)
-                    TextField("Search names", text: $search).textFieldStyle(.plain).font(Theme.mono).foregroundStyle(Theme.text)
+                    TextField("Search names and text", text: $search).textFieldStyle(.plain).font(Theme.mono).foregroundStyle(Theme.text)
                 }
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(Theme.field, in: Capsule())
@@ -247,7 +269,8 @@ struct ManagerView: View {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: tileWidth, maximum: tileWidth * 1.4), spacing: 14)],
                                       alignment: .leading, spacing: 16) {
                                 ForEach(group.files) { file in
-                                    ShotCell(file: file, selected: selection.contains(file.url))
+                                    ShotCell(file: file, selected: selection.contains(file.url),
+                                             highlights: hits[file.url]?.boxes ?? [], snippet: hits[file.url]?.snippet)
                                         .onTapGesture(count: 2) { NSWorkspace.shared.open(file.url) }
                                         .onTapGesture { click(file) }
                                         .contextMenu {
@@ -454,7 +477,8 @@ struct ManagerView: View {
                     let folderName = parent == folder.path ? folder.lastPathComponent
                         : String(parent.dropFirst(folder.path.count + 1))
                     out.append(ShotFile(url: url, date: v.creationDate ?? .distantPast, size: v.fileSize ?? 0,
-                                        kept: XAttr.isKept(url), folder: folderName))
+                                        kept: XAttr.isKept(url), folder: folderName, handled: XAttr.isDone(url),
+                                        text: XAttr.text(url).map(SearchableText.init)))
                 }
             }
             return out.sorted { $0.date > $1.date }
@@ -462,6 +486,35 @@ struct ManagerView: View {
         files = found
         refilter()
         loading = false
+        readOlderText()
+    }
+
+    /// Screenshots Spruce named before it saved text have none to search. While a search is on,
+    /// read them one at a time at low priority, save the text next to each file, and search again.
+    /// Unhandled files are left alone: they may come from a private app.
+    private func readOlderText() {
+        guard backfill == nil, !TextRules.searchTokens(search).isEmpty else { return }
+        let todo = files.filter { $0.handled && $0.text == nil && !tried.contains($0.url) }.map(\.url)
+        guard !todo.isEmpty else { return }
+        tried.formUnion(todo)
+        reading = todo.count
+        backfill = Task {
+            for (n, url) in todo.enumerated() {
+                if Task.isCancelled { break }
+                let text = await Task.detached(priority: .utility) { () -> SearchableText? in
+                    guard let lines = try? OCR.read(url).lines else { return nil }
+                    let stored = TextRules.storedLines(lines)
+                    XAttr.setText(url, lines: stored)
+                    return SearchableText(stored)
+                }.value
+                reading -= 1
+                if let text, let i = files.firstIndex(where: { $0.url == url }) { files[i].text = text }
+                if n % 8 == 7 { refilter() } // new matches appear in batches, not one flicker per file
+            }
+            reading = 0
+            backfill = nil
+            refilter()
+        }
     }
 
     private static let trashSound = NSSound(
@@ -500,6 +553,10 @@ private struct FilterChip: View {
 private struct ShotCell: View {
     let file: ShotFile
     let selected: Bool
+    /// Where the search words sit, in Vision's normalized coordinates (origin bottom-left).
+    var highlights: [CGRect] = []
+    /// The matching line, shown in place of the date while searching.
+    var snippet: String?
     @State private var image: NSImage?
     @State private var hovering = false
 
@@ -512,7 +569,11 @@ private struct ShotCell: View {
                     .aspectRatio(16 / 10, contentMode: .fit)
                     .overlay {
                         if let image {
-                            Image(nsImage: image).resizable().scaledToFit().padding(6)
+                            Image(nsImage: image).resizable().scaledToFit()
+                                // scaledToFit sizes the image to its fitted frame, so the overlay lines up with it.
+                                .overlay { if !highlights.isEmpty { Highlights(boxes: highlights).transition(.opacity) } }
+                                .animation(.easeOut(duration: 0.3), value: highlights)
+                                .padding(6)
                         }
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -538,8 +599,12 @@ private struct ShotCell: View {
                 Text(file.url.deletingPathExtension().lastPathComponent)
                     .font(.system(size: 11, design: .monospaced)).foregroundStyle(Theme.text)
                     .lineLimit(1).truncationMode(.middle)
-                Text(file.date.formatted(.dateTime.weekday(.abbreviated).day().hour().minute()))
-                    .font(.system(size: 10.5)).foregroundStyle(Theme.tertiary)
+                if let snippet {
+                    Text(snippet).font(.system(size: 10.5)).foregroundStyle(Theme.secondary).lineLimit(1)
+                } else {
+                    Text(file.date.formatted(.dateTime.weekday(.abbreviated).day().hour().minute()))
+                        .font(.system(size: 10.5)).foregroundStyle(Theme.tertiary)
+                }
             }
             .padding(.horizontal, 2)
         }
@@ -549,6 +614,25 @@ private struct ShotCell: View {
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .task(id: file.url) { image = await Thumbnails.image(for: file.url) }
+    }
+}
+
+/// Soft green marks over the words a search found, drawn on the fitted thumbnail.
+private struct Highlights: View {
+    let boxes: [CGRect]
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width, h = geo.size.height
+            ForEach(Array(boxes.enumerated()), id: \.offset) { _, b in
+                // Vision's origin is bottom-left; SwiftUI's is top-left. A little slack so tiny text still shows.
+                RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                    .fill(Theme.success.opacity(0.35))
+                    .frame(width: max(b.width * w + 3, 4), height: max(b.height * h * 1.3, 4))
+                    .position(x: b.midX * w, y: (1 - b.midY) * h)
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 

@@ -149,4 +149,36 @@ do {
     check(Stitch.span(moved: [0, 0], stayed: [0, 0], conflicted: [0, 0], scrollbar: 1) == nil, "nothing scrolled: keep everything")
 }
 
+// Text search: saved lines, tokens, matches, highlight boxes and snippets
+do {
+    let stored = TextRules.storedLines([
+        OCRLine(text: "Wi-Fi password: Café4471", confidence: 0.9, box: CGRect(x: 0.1, y: 0.5, width: 0.4, height: 0.05)),
+        OCRLine(text: "noise", confidence: 0.2, box: CGRect(x: 0, y: 0, width: 0.1, height: 0.1)),
+        OCRLine(text: "Invoice", confidence: 0.8, box: CGRect(x: 0.1, y: 0.8, width: 0.123456, height: 0.05)),
+    ])
+    check(stored.map(\.t) == ["Invoice", "Wi-Fi password: Café4471"], "low confidence dropped, reading order")
+    check(stored[0].b[2] == 0.1235, "boxes rounded")
+    let data = TextRules.encodeStored(stored)!
+    check(TextRules.decodeStored(data) == stored, "round trip")
+    let many = (0..<2000).map { StoredLine(t: "line number \($0) with some words", b: [0, 0, 1, 0.01]) }
+    let capped = TextRules.encodeStored(many)!
+    check(capped.count <= TextRules.storedTextCap && TextRules.decodeStored(capped)!.count > 100, "capped but not emptied")
+
+    check(TextRules.searchTokens("  Invoice   4471 invoice ") == ["invoice", "4471"], "tokens folded and deduped")
+    let text = SearchableText(stored)
+    check(TextRules.search(["cafe"], name: "shot", text: text)?.boxes.count == 1, "diacritics folded")
+    check(TextRules.search(["invoice", "4471"], name: "shot", text: text) != nil, "tokens across lines")
+    check(TextRules.search(["invoice", "9999"], name: "shot", text: text) == nil, "every token must appear")
+    check(TextRules.search(["slack", "4471"], name: "slack-chat", text: text) != nil, "name and text together")
+    let nameOnly = TextRules.search(["slack"], name: "slack-chat", text: nil)
+    check(nameOnly == TextHit(), "name match without text: no boxes, no snippet")
+    let hit = TextRules.search(["password"], name: "shot", text: text)!
+    check(hit.snippet == "Wi-Fi password: Café4471", "snippet is the matching line")
+    let box = hit.boxes[0], line = stored[1].box
+    check(box.minX > line.minX && box.maxX < line.maxX && box.minY == line.minY, "highlight narrowed to the word")
+    let long = "aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeeeeeee ffffffffff target gggggggggg hhhhhhhhhh"
+    let s = TextRules.snippet(long, folded: long, at: long.range(of: "target")!.lowerBound)
+    check(s.hasPrefix("…") && s.contains("target") && s.count <= 62, "long line cut around the match: \(s)")
+}
+
 print("All checks passed.")
