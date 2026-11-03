@@ -201,12 +201,6 @@ struct SettingsView: View {
             ForEach(Page.allCases) { item in
                 SidebarItem(title: item.title, icon: item.icon, selected: page == item) { page = item }
             }
-            Spacer()
-            HStack(spacing: 7) {
-                Circle().fill(state.prefs.watching ? Theme.success : Theme.tertiary).frame(width: 7, height: 7)
-                Text(state.prefs.watching ? "Renaming on" : "Paused").font(Theme.detail).foregroundStyle(Theme.secondary)
-            }
-            .padding(.horizontal, 10)
         }
         .padding(.top, 44) // room for the window buttons
         .padding(.bottom, 16)
