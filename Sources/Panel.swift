@@ -308,8 +308,9 @@ struct IslandView: View {
                     .help("Never move this one to the Trash")
             }
             IslandButton(title: copied == "image" ? "Copied" : "Copy") {
-                AppState.copyToClipboard(capture.url)
-                copied = "image"
+                // The name is applied first, like a drag, so the file pastes renamed.
+                let url = state.applyCaptureNow(stem: name) ?? capture.url
+                copied = AppState.copyToClipboard(url) ? "image" : nil
             }
             IslandButton(title: copied == "text" ? "Copied" : "Copy Text") {
                 AppState.copyText(capture.proposal?.text ?? "")
