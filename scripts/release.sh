@@ -38,8 +38,9 @@ OUT=build/release
 rm -rf "$OUT" && mkdir -p "$OUT" docs
 # Always named Spruce.zip, so .../releases/latest/download/Spruce.zip (used by docs/install.sh) works.
 ditto -c -k --keepParent build/Build/Products/Release/Spruce.app "$OUT/Spruce.zip"
-# generate_appcast embeds a notes file named like the archive, so the update dialog shows them.
-print -r -- "$NOTES" > "$OUT/Spruce.md"
+# generate_appcast embeds an HTML file named like the archive, so the update dialog shows the notes.
+ESCAPED=${NOTES//&/&amp;}; ESCAPED=${ESCAPED//</&lt;}; ESCAPED=${ESCAPED//>/&gt;}
+print -r -- "<p>$ESCAPED</p>" > "$OUT/Spruce.html"
 
 # Signs with the private key that generate_keys stored in your Keychain.
 build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast \
