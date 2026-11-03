@@ -97,6 +97,15 @@ enum XAttr {
 
     static let keptKey = "com.screenshotrenamer.kept"
 
+    /// Stamps a file the way macOS stamps its own screenshots (used for scroll captures).
+    static func markScreenCapture(_ url: URL) {
+        guard let data = try? PropertyListSerialization.data(fromPropertyList: true, format: .binary, options: 0) else { return }
+        url.withUnsafeFileSystemRepresentation { path in
+            guard let path else { return }
+            _ = data.withUnsafeBytes { setxattr(path, screenCaptureKey, $0.baseAddress, data.count, 0, 0) }
+        }
+    }
+
     static func isDone(_ url: URL) -> Bool { get(url, doneKey) != nil }
 
     /// The "done" mark holds the time the app handled the file. Files marked by older versions

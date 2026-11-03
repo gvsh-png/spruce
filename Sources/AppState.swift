@@ -96,6 +96,13 @@ final class AppState {
         restartWatcher()
         Notifier.setUp(self)
         Namer.prewarm()
+        // ⌥⇧⌘4 starts a scroll capture; pressed again while capturing, it finishes.
+        Hotkey.register { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                if ScrollCapture.shared.isRunning { ScrollCapture.shared.stop(save: true) } else { ScrollCapture.shared.start(self) }
+            }
+        }
         expireOld()
         expiryTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.expireOld() }

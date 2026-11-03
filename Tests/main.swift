@@ -75,4 +75,34 @@ check(TextRules.isBurst(shot, edited) == (Double(shot.intersection(edited).count
 check(Prompt.system(folders: ["Receipts"]).contains("\"Receipts\""), "folders listed in prompt")
 check(Prompt.system(folders: []).contains("Always set \"folder\" to null"), "no folders")
 
+
+// Scroll capture stitching: a page of unique rows, a 10-row sticky header and a 6-row footer.
+do {
+    let page = (0..<400).map { UInt64($0) &* 2_654_435_761 &+ 7 }
+    let header = (0..<10).map { UInt64(1_000_000 + $0) }, footer = (0..<6).map { UInt64(2_000_000 + $0) }
+    func frame(_ offset: Int) -> Stitch.Rows {
+        let hashes = header + Array(page[offset..<offset + 80]) + footer
+        return Stitch.Rows(hashes: hashes, flat: hashes.map { _ in false })
+    }
+    check(Stitch.match(frame(0), frame(0)) == Stitch.Match(scrolled: 0, footer: 0), "unchanged frame")
+    check(Stitch.match(frame(0), frame(17)) == Stitch.Match(scrolled: 17, footer: 6), "scrolled 17 rows past a header and footer")
+    check(Stitch.match(frame(0), frame(79)) == nil, "scrolled too far to line up")
+    check(Stitch.match(frame(30), frame(10)) == nil, "scrolling up is ignored")
+
+    // Stitch a whole session and compare with the real page.
+    var out = frame(0).hashes, last = frame(0)
+    for offset in stride(from: 16, through: 320, by: 16) {
+        let next = frame(offset)
+        guard let m = Stitch.match(last, next) else { check(false, "lost track at \(offset)"); break }
+        let (drop, rows) = Stitch.splice(height: next.count, m)
+        out.removeLast(drop)
+        out += next.hashes[rows]
+        last = next
+    }
+    check(out == header + Array(page[0..<400]) + footer, "stitched page equals the original")
+
+    // Blank rows (a white gap in the page) never decide a match on their own.
+    let blank = Stitch.Rows(hashes: Array(repeating: 5, count: 96), flat: Array(repeating: true, count: 96))
+    check(Stitch.match(blank, blank) == Stitch.Match(scrolled: 0, footer: 0), "blank frames are unchanged")
+}
 print("All checks passed.")

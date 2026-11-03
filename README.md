@@ -76,6 +76,16 @@ Spruce installs into `/Applications`, opens, and lives in your menu bar. From th
 </tr>
 <tr>
 <td colspan="2" valign="top">
+<table><tr>
+<td width="68%" valign="top"><img src="docs/media/scroll.gif" width="100%" alt="Dragging over a chat, scrolling, and pressing Done"></td>
+<td width="32%" valign="top"><img src="docs/media/scroll-result.png" width="100%" alt="The saved scroll capture: the whole chat in one tall image"></td>
+</tr></table>
+<b>Scroll capture</b> · <kbd>⌥</kbd><kbd>⇧</kbd><kbd>⌘</kbd><kbd>4</kbd><br>
+<sub>Drag over a chat or a page, scroll, press Done. One tall screenshot, named like any other. Sticky headers show up once.</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top">
 <img src="docs/media/manager.gif" width="100%" alt="Screenshot Manager grouped by week, selecting a week, deleting it and undoing">
 <b>Screenshot Manager</b><br>
 <sub>Every screenshot by day, week or month. Select a whole week, delete it, change your mind.</sub>
@@ -130,6 +140,12 @@ Yes. Turn on <b>Settings → General → Also match by filename</b>. Those apps 
 </details>
 
 <details>
+<summary><b>Scroll capture asks for Screen Recording</b></summary>
+<br>
+It needs to see the area you pick while you scroll. Turn Spruce on in System Settings → Privacy & Security → Screen & System Audio Recording. Spruce only captures that area, only while the capture runs, and never records video or sound. macOS may also ask once to let Spruce "bypass the private window picker"; choose Allow.
+</details>
+
+<details>
 <summary><b>What about screenshots I already have?</b></summary>
 <br>
 Choose <b>Rename Old Screenshots…</b> in the menu bar. You'll see every proposed name first and can edit or skip any of them. The whole batch is one Undo.
@@ -173,7 +189,7 @@ If `xcode-select` points at the Command Line Tools, prefix commands with `DEVELO
 Self-check for the naming rules:
 
 ```sh
-swiftc Sources/TextRules.swift Tests/main.swift -o /tmp/selfcheck && /tmp/selfcheck
+swiftc Sources/TextRules.swift Sources/Stitch.swift Tests/main.swift -o /tmp/selfcheck && /tmp/selfcheck
 ```
 
 Ship a release (builds, signs the update, updates the feed, publishes on GitHub):

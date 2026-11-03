@@ -85,6 +85,8 @@ struct MenuView: View {
 
         Divider()
 
+        Button("Scroll Capture…") { ScrollCapture.shared.start(state) }
+            .keyboardShortcut("4", modifiers: [.command, .shift, .option])
         Button("Manage Screenshots…") {
             openWindow(id: "manager")
             NSApp.activate(ignoringOtherApps: true)
