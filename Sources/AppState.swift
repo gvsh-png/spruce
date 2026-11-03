@@ -22,6 +22,8 @@ struct Proposal: Identifiable {
     var keep = false
     /// What the QR codes in the screenshot say, if any.
     var codes: [String] = []
+    /// OCR lines with positions, saved next to the file so the Screenshot Manager can search inside it.
+    var lines: [OCRLine] = []
 }
 
 /// The screenshot shown in the capture panel right now.
@@ -312,7 +314,7 @@ final class AppState {
         }
         let fullText = TextRules.fullText(lines)
         return Proposal(url: url, stem: stem, dir: dir, provider: provider,
-                        kind: TextRules.matchKind(suggestion?.kind), text: fullText, words: TextRules.wordSet(fullText), codes: codes)
+                        kind: TextRules.matchKind(suggestion?.kind), text: fullText, words: TextRules.wordSet(fullText), codes: codes, lines: lines)
     }
 
     /// The only step that changes the file: mark, move, tag, log.
@@ -328,6 +330,8 @@ final class AppState {
             // see the new name before the mark is on it.
             let dest = try FileOps.move(p.url, toDir: p.dir, stem: stem, style: prefs.style)
             XAttr.markDone(dest)
+            // Private-app screenshots never get here: they are never read, so there is no text to save.
+            XAttr.setText(dest, lines: TextRules.storedLines(p.lines))
             if prefs.tagsEnabled, let kind = p.kind { FileOps.addTag(kind, to: dest) }
             if p.keep { XAttr.markKept(dest) }
             guard dest != p.url else { return dest } // already had this name: nothing to log or undo

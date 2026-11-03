@@ -120,11 +120,27 @@ enum XAttr {
     static func isKept(_ url: URL) -> Bool { get(url, keptKey) != nil }
     static func markKept(_ url: URL) { set(url, keptKey, "1") }
 
+    /// The screenshot's OCR text with positions, so the Screenshot Manager can search inside it.
+    /// Stays on this Mac, next to the file, and follows it through renames and moves.
+    static let textKey = "com.screenshotrenamer.text"
+
+    static func setText(_ url: URL, lines: [StoredLine]) {
+        if let data = TextRules.encodeStored(lines) { set(url, textKey, data) }
+    }
+
+    /// nil when the file hasn't been read yet (an empty list means it was read and has no text).
+    static func text(_ url: URL) -> [StoredLine]? {
+        get(url, textKey).flatMap(TextRules.decodeStored)
+    }
+
     private static func set(_ url: URL, _ name: String, _ value: String) {
+        set(url, name, Data(value.utf8))
+    }
+
+    private static func set(_ url: URL, _ name: String, _ data: Data) {
         url.withUnsafeFileSystemRepresentation { path in
             guard let path else { return }
-            let bytes = Array(value.utf8)
-            _ = setxattr(path, name, bytes, bytes.count, 0, 0)
+            _ = data.withUnsafeBytes { setxattr(path, name, $0.baseAddress, data.count, 0, 0) }
         }
     }
 

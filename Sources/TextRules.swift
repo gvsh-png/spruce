@@ -30,6 +30,32 @@ struct OCRLine {
     var box: CGRect
 }
 
+/// One OCR line as saved next to the file (an extended attribute), for "Search names and text".
+/// Short keys keep the JSON small: `t` is the text, `b` the Vision box as [x, y, width, height].
+struct StoredLine: Codable, Hashable {
+    var t: String
+    var b: [Double]
+
+    var box: CGRect { b.count == 4 ? CGRect(x: b[0], y: b[1], width: b[2], height: b[3]) : .zero }
+}
+
+/// A screenshot's saved lines, folded once so searching stays fast while you type.
+struct SearchableText: Hashable {
+    let lines: [StoredLine]
+    let folded: [String]
+
+    init(_ lines: [StoredLine]) {
+        self.lines = lines
+        folded = lines.map { TextRules.fold($0.t) }
+    }
+}
+
+/// Why a screenshot matched a search: the boxes to highlight on its thumbnail, and one line to show.
+struct TextHit: Equatable {
+    var boxes: [CGRect] = []
+    var snippet: String?
+}
+
 /// What the model answers with. The app turns `words` into a filename itself,
 /// so casing, length and safe characters never depend on the model.
 struct Suggestion: Codable, Equatable {
@@ -82,6 +108,96 @@ enum TextRules {
     /// they all contain the capture date and time. Bulk rename only touches these.
     static func looksDefaultName(_ name: String) -> Bool {
         name.range(of: #"\d{4}-\d{2}-\d{2}.*\d{1,2}[.:]\d{2}[.:]\d{2}"#, options: .regularExpression) != nil
+    }
+
+    // MARK: Text search
+
+    /// Saved text is capped so the extended attribute stays small.
+    static let storedTextCap = 32_000
+
+    /// The lines worth saving: readable ones, with boxes rounded to keep the JSON short.
+    static func storedLines(_ lines: [OCRLine]) -> [StoredLine] {
+        func r(_ v: CGFloat) -> Double { (Double(v) * 10_000).rounded() / 10_000 }
+        return readingOrder(lines.filter { $0.confidence >= 0.4 && !$0.text.trimmingCharacters(in: .whitespaces).isEmpty })
+            .map { StoredLine(t: $0.text, b: [r($0.box.minX), r($0.box.minY), r($0.box.width), r($0.box.height)]) }
+    }
+
+    /// JSON for the extended attribute, dropping lines from the end until it fits under the cap.
+    static func encodeStored(_ lines: [StoredLine], cap: Int = storedTextCap) -> Data? {
+        var lines = lines
+        while true {
+            guard let data = try? JSONEncoder().encode(lines) else { return nil }
+            if data.count <= cap || lines.isEmpty { return data }
+            lines.removeLast(max(1, lines.count / 10))
+        }
+    }
+
+    static func decodeStored(_ data: Data) -> [StoredLine]? {
+        try? JSONDecoder().decode([StoredLine].self, from: data)
+    }
+
+    /// Case, accent and width insensitive form used on both sides of a search.
+    static func fold(_ s: String) -> String {
+        s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+    }
+
+    /// "Invoice  4471" → ["invoice", "4471"]; every token must appear for a match.
+    static func searchTokens(_ query: String) -> [String] {
+        var seen = Set<String>()
+        return fold(query).split(whereSeparator: \.isWhitespace).map(String.init).filter { seen.insert($0).inserted }
+    }
+
+    /// Matches when every token is in the name or somewhere in the text. Returns nil for no match,
+    /// otherwise where the tokens sit in the text (a box per occurrence) and the line that holds most of them.
+    static func search(_ tokens: [String], name: String, text: SearchableText?, maxBoxes: Int = 40) -> TextHit? {
+        let foldedName = fold(name)
+        let folded = text?.folded ?? []
+        for token in tokens where !foldedName.contains(token) && !folded.contains(where: { $0.contains(token) }) {
+            return nil
+        }
+        var hit = TextHit()
+        guard let text else { return hit }
+        var best: (index: Int, count: Int, at: String.Index)?
+        for (i, line) in folded.enumerated() {
+            var count = 0
+            var first: String.Index?
+            for token in tokens {
+                var from = line.startIndex
+                var found = false
+                while from < line.endIndex, let range = line.range(of: token, range: from..<line.endIndex) {
+                    if !found { found = true; count += 1 }
+                    if first == nil || range.lowerBound < first! { first = range.lowerBound }
+                    if hit.boxes.count < maxBoxes { hit.boxes.append(subBox(text.lines[i].box, in: line, range: range)) }
+                    from = range.upperBound
+                }
+            }
+            if count > 0, let first, count > (best?.count ?? 0) { best = (i, count, first) }
+        }
+        if let best { hit.snippet = snippet(text.lines[best.index].t, folded: folded[best.index], at: best.at) }
+        return hit
+    }
+
+    /// The part of a line's box that holds `range`, assuming characters of roughly even width
+    /// (the box is for the whole line; the per-word boxes aren't saved). Half a character of slack each side.
+    static func subBox(_ box: CGRect, in line: String, range: Range<String.Index>) -> CGRect {
+        let n = Double(line.count)
+        guard n > 0 else { return box }
+        let start = Double(line.distance(from: line.startIndex, to: range.lowerBound)) / n
+        let end = Double(line.distance(from: line.startIndex, to: range.upperBound)) / n
+        let x0 = max(0, start - 0.5 / n), x1 = min(1, end + 0.5 / n)
+        return CGRect(x: box.minX + box.width * x0, y: box.minY, width: box.width * (x1 - x0), height: box.height)
+    }
+
+    /// One line, cut to about 60 characters around the match.
+    static func snippet(_ line: String, folded: String, at: String.Index, length: Int = 60) -> String {
+        let text = line.trimmingCharacters(in: .whitespaces)
+        guard line.count > length else { return text }
+        // Folding can change the length (ß → ss); only then fall back to the start of the line.
+        var offset = line.count == folded.count ? folded.distance(from: folded.startIndex, to: at) : 0
+        offset = max(0, min(offset - 12, line.count - length))
+        let start = line.index(line.startIndex, offsetBy: offset)
+        let cut = String(line[start...].prefix(length)).trimmingCharacters(in: .whitespaces)
+        return (offset > 0 ? "…" : "") + cut + (offset + length < line.count ? "…" : "")
     }
 
     // MARK: Bursts
