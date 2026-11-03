@@ -280,6 +280,9 @@ struct IslandView: View {
                     .buttonStyle(IslandButtonStyle())
                     .help("An earlier screenshot of the same thing went to the Trash. Click to bring it back.")
                 }
+                if let code = capture.proposal?.codes.first {
+                    QRButton(payload: code)
+                }
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).font(.system(size: 16))
             } else if let partial = capture.partial {
                 // The name as the model writes it.
@@ -313,7 +316,7 @@ struct IslandView: View {
                 copied = "text"
             }
             .disabled(capture.proposal?.text.isEmpty ?? true)
-            Menu("Move") {
+            Menu {
                 let here = capture.url.deletingLastPathComponent()
                 ForEach(state.prefs.folders, id: \.self) { folder in
                     Button(folder) { state.finishCapture(stem: name, dir: here.appendingPathComponent(folder, isDirectory: true)) }
@@ -330,6 +333,9 @@ struct IslandView: View {
                     defer { choosingFolder = false }
                     if open.runModal() == .OK, let dir = open.url { state.finishCapture(stem: name, dir: dir) }
                 }
+            } label: {
+                // Menus ignore .font on their title; set it on the label so it matches the other buttons.
+                Text("Move").font(.system(size: 11, weight: .medium)).foregroundStyle(.white)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
@@ -341,6 +347,32 @@ struct IslandView: View {
                 .help("Move to Trash")
         }
         .padding(.bottom, 6)
+    }
+}
+
+/// Shown when the screenshot has a QR code: opens a web link in the browser, copies anything else
+/// (Wi-Fi details, plain text). The full contents show on hover before you click.
+private struct QRButton: View {
+    let payload: String
+    @State private var copied = false
+
+    private var link: URL? {
+        guard let url = URL(string: payload), ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return nil }
+        return url
+    }
+
+    var body: some View {
+        Button {
+            if let link { NSWorkspace.shared.open(link) } else { AppState.copyText(payload); copied = true }
+        } label: {
+            Label(link != nil ? "Open" : copied ? "Copied" : "Copy", systemImage: "qrcode")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(.white.opacity(0.85))
+                .contentTransition(.interpolate)
+        }
+        .buttonStyle(IslandButtonStyle())
+        .help(link.map { "Open \($0.absoluteString)" } ?? "Copy the QR code's contents: \(payload)")
+        .fixedSize()
     }
 }
 

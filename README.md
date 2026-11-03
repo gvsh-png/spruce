@@ -40,68 +40,57 @@ Spruce installs into `/Applications`, opens, and lives in your menu bar. From th
 <table>
 <tr>
 <td width="50%" valign="top">
-
-### ✏️ Names that make sense
-Spruce reads the text in each screenshot on your Mac and asks an AI model for a short, searchable name. You see it being written, and you can click it to edit before it's saved.
-
+<img src="docs/media/naming.gif" width="100%" alt="The pill reads a chat screenshot and names it">
+<b>Names it while you watch</b><br>
+<sub>Text is read on your Mac, then a model writes the name. Click it to change it.</sub>
 </td>
 <td width="50%" valign="top">
-
-### 💊 A pill, not a popup
-A slim black pill drops in near the top of the screen. It never steals focus and closes by itself after 5 seconds.
-
+<img src="docs/media/actions.gif" width="100%" alt="Hovering the pill shows Keep, Copy, Copy Text, Move and Delete">
+<b>Everything one hover away</b><br>
+<sub>Keep, Copy, Copy Text, Move to a folder, or Delete.</sub>
 </td>
 </tr>
 <tr>
 <td valign="top">
-
-### ⚡️ One click for everything
-**Copy**, **Copy Text**, **Move**, **Keep** and **Delete** sit right in the pill. Drag the thumbnail into any app. Hover it for a bigger preview.
-
+<img src="docs/media/peek.gif" width="100%" alt="Resting on the thumbnail shows a larger preview">
+<b>Peek</b><br>
+<sub>Rest on the thumbnail for a bigger look. Drag it straight into Slack or Mail.</sub>
 </td>
 <td valign="top">
-
-### 🧹 Clutter cleans itself up
-Screenshots are temporary by default: after 14 days they go to the Trash unless you kept, moved or sorted them. Bursts of near-identical shots collapse into one.
-
+<img src="docs/media/delete.gif" width="100%" alt="Delete moves the screenshot to the Trash with an Undo button">
+<b>Delete without worry</b><br>
+<sub>Goes to the Trash, with Undo right there.</sub>
 </td>
 </tr>
 <tr>
 <td valign="top">
-
-### 🗂️ Screenshot Manager
-Browse every screenshot by day, week or month. Select a whole week and delete it in one go, with Undo.
-
+<img src="docs/media/qr.gif" width="100%" alt="A screenshot with a QR code gets an Open button">
+<b>QR codes open in one click</b><br>
+<sub>Links open in your browser. Anything else, like Wi-Fi details, is copied.</sub>
 </td>
 <td valign="top">
-
-### 🏷️ Sorted and tagged
-Optional sorting into folders you choose, plus Finder tags by kind: Chat, Code, Receipt, Document, Design, Web, Email and more.
-
+<img src="docs/media/burst.gif" width="100%" alt="A second screenshot of the same thing replaces the first">
+<b>No piles of duplicates</b><br>
+<sub>Took the same shot twice? The older one goes to the Trash. Click "−1 similar" to bring it back.</sub>
 </td>
 </tr>
 <tr>
-<td valign="top">
-
-### 🔒 Private apps
-Screenshots of password managers, Messages, or any app you add keep their original name. Nothing from them is read.
-
-</td>
-<td valign="top">
-
-### ⏪ Undo anything
-Every rename is logged. Undo the last one from the menu bar, or go back through the full history in Settings.
-
+<td colspan="2" valign="top">
+<img src="docs/media/manager.gif" width="100%" alt="Screenshot Manager grouped by week, selecting a week, deleting it and undoing">
+<b>Screenshot Manager</b><br>
+<sub>Every screenshot by day, week or month. Select a whole week, delete it, change your mind.</sub>
 </td>
 </tr>
 </table>
 
-<p align="center">
-  <img src="docs/media/naming.png" width="420" alt="Spruce's pill while it reads a screenshot">
-  <img src="docs/media/renamed.png" width="420" alt="Spruce's pill after naming the screenshot">
-</p>
+**Also in the box**
 
-Also: copies every screenshot to the clipboard the moment it's saved, renames your old screenshots in one batch, and gives a small trackpad tick when a name lands.
+- Copies each screenshot to the clipboard the moment it's saved
+- Screenshots go to the Trash after 14 days unless you keep, move or sort them
+- Private apps: shots of 1Password, Messages and anything you add keep their name and are never read
+- Finder tags by kind (Chat, Code, Receipt, Document, …) and optional sorting into your folders
+- Rename the screenshots you already have, all at once, as one Undo
+- Full rename history, every step undoable
 
 ## Privacy
 

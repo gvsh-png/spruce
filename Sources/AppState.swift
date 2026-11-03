@@ -20,6 +20,8 @@ struct Proposal: Identifiable {
     var words: Set<String> = []
     /// Keep forever: goes to the Kept folder and never expires.
     var keep = false
+    /// What the QR codes in the screenshot say, if any.
+    var codes: [String] = []
 }
 
 /// The screenshot shown in the capture panel right now.
@@ -244,8 +246,8 @@ final class AppState {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
 
         // 1. OCR on-device, off the main thread.
-        let lines: [OCRLine]
-        do { lines = try await Task.detached(priority: .utility) { try OCR.lines(in: url) }.value }
+        let lines: [OCRLine], codes: [String]
+        do { (lines, codes) = try await Task.detached(priority: .utility) { try OCR.read(url) }.value }
         catch {
             lastError = "Skipped “\(url.lastPathComponent)”: it isn't a readable image."
             return nil
@@ -289,7 +291,7 @@ final class AppState {
         }
         let fullText = TextRules.fullText(lines)
         return Proposal(url: url, stem: stem, dir: dir, provider: provider,
-                        kind: TextRules.matchKind(suggestion?.kind), text: fullText, words: TextRules.wordSet(fullText))
+                        kind: TextRules.matchKind(suggestion?.kind), text: fullText, words: TextRules.wordSet(fullText), codes: codes)
     }
 
     /// The only step that changes the file: mark, move, tag, log.
