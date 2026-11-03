@@ -53,6 +53,8 @@ targets:
         # Turn back on together with a "Developer ID Application" identity for notarized releases.
         ENABLE_HARDENED_RUNTIME: NO
         CODE_SIGN_STYLE: Manual
-        CODE_SIGN_IDENTITY: "-" # ad-hoc for local builds; use "Developer ID Application" for release
+        # Same self-signed identity for every build (scripts/make-signing-identity.sh), so macOS keeps
+        # permissions like Screen Recording across updates. Swap for "Developer ID Application" later.
+        CODE_SIGN_IDENTITY: "Spruce Code Signing"
         DEVELOPMENT_TEAM: ""
         ENABLE_USER_SCRIPT_SANDBOXING: YES

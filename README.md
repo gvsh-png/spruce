@@ -192,6 +192,8 @@ Self-check for the naming rules:
 swiftc Sources/TextRules.swift Sources/Stitch.swift Tests/main.swift -o /tmp/selfcheck && /tmp/selfcheck
 ```
 
+Builds are signed with a self-signed "Spruce Code Signing" identity, so macOS keeps permissions such as Screen Recording across updates. Create it once with `scripts/make-signing-identity.sh` (it stays in your Keychain), or build with `CODE_SIGN_IDENTITY=-` to sign ad hoc.
+
 Ship a release (builds, signs the update, updates the feed, publishes on GitHub):
 
 ```sh
