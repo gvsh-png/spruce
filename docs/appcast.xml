@@ -3,6 +3,17 @@
     <channel>
         <title>Spruce</title>
         <item>
+            <title>0.1.3</title>
+            <pubDate>Tue, 03 Nov 2026 11:33:09 +0100</pubDate>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<p>Scroll capture keeps its Screen Recording permission across updates. Turn it on once more after this update and it stays on.</p>
+]]></description>
+            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.3/Spruce.zip" length="1896544" type="application/octet-stream" sparkle:edSignature="ttuYqCSq3ou6y5QAWJ52GZt3M+yJUSEU1wEMQatExLpe9CFaxnwRFvzrZnqWsvAYAK4cdDqMerAHTyq9MUs6Cw=="/>
+        </item>
+        <item>
             <title>0.1.2</title>
             <pubDate>Tue, 03 Nov 2026 11:28:19 +0100</pubDate>
             <sparkle:version>4</sparkle:version>
