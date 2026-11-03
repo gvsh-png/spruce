@@ -257,7 +257,8 @@ final class AppState {
     func redactCapture() {
         guard !redacting, let current = capture, current.trashedURL == nil, current.redactedOriginal == nil,
               let boxes = current.proposal?.sensitive, !boxes.isEmpty else { return }
-        let file = current.appliedURL ?? current.url, style = prefs.redactStyle
+        // The name is applied first, like Copy, so the clipboard's file link stays valid after the pill closes.
+        let file = applyCaptureNow(stem: current.edited) ?? current.url, style = prefs.redactStyle
         redacting = true
         Task {
             defer { redacting = false }

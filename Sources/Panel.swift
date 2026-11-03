@@ -21,7 +21,7 @@ final class CapturePanel {
         let panel = self.panel ?? make(state)
         self.panel = panel
         panel.contentView = NSHostingView(rootView: IslandView(geometry: geometry).environment(state))
-        let height = geometry.top + Self.extraHeight
+        let height = geometry.top + geometry.inset + Self.extraHeight
         panel.setFrame(NSRect(x: screen.frame.midX - Self.width / 2, y: screen.frame.maxY - height,
                               width: Self.width, height: height), display: true)
         panel.orderFrontRegardless()
@@ -38,8 +38,10 @@ final class CapturePanel {
     private func make(_ state: AppState) -> NSPanel {
         let panel = KeyablePanel(contentRect: .zero, styleMask: [.nonactivatingPanel, .borderless, .fullSizeContentView],
                                  backing: .buffered, defer: false)
-        panel.level = .statusBar // above the menu bar, so it can sit in the notch
         panel.isFloatingPanel = true
+        // Above the menu bar itself, so the island can grow out of the notch over it. Set after
+        // isFloatingPanel, which resets the level to .floating.
+        panel.level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.backgroundColor = .clear
@@ -56,17 +58,24 @@ private final class KeyablePanel: NSPanel {
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
 }
 
-/// The island is a floating pill just under the menu bar, centered on the screen (under the notch
-/// on MacBooks). It never attaches to the screen edge.
+/// On a screen with a camera notch the island grows out of the notch, attached to the top edge.
+/// Elsewhere it is a floating pill just under the menu bar, centered on the screen.
 struct IslandGeometry {
-    /// Width of the pill before it opens (it widens as it drops in).
-    var closedWidth: CGFloat = 160
-    /// Distance from the top of the screen to the pill: menu bar (or notch) height plus a small gap.
+    /// Size of the notch, nil on screens without one.
+    var notch: CGSize?
+    /// Width of the island before it opens: the notch itself, or a small pill.
+    var closedWidth: CGFloat
+    /// Distance from the top of the screen to the island: 0 at the notch, else below the menu bar.
     var top: CGFloat
+    /// Empty band at the top of the island that sits behind the notch.
+    var inset: CGFloat { notch?.height ?? 0 }
 
     init(screen: NSScreen) {
-        let menuBar = max(screen.safeAreaInsets.top, NSStatusBar.system.thickness)
-        top = menuBar + 5
+        if screen.safeAreaInsets.top > 0, let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
+            notch = CGSize(width: screen.frame.width - left.width - right.width, height: screen.safeAreaInsets.top)
+        }
+        closedWidth = notch?.width ?? 160
+        top = notch == nil ? max(screen.safeAreaInsets.top, NSStatusBar.system.thickness) + 5 : 0
     }
 }
 
@@ -98,7 +107,8 @@ struct IslandView: View {
         let capture = state.capture
         let deleted = capture?.trashedURL != nil
         let showTools = open && (showHover || editing) && capture?.proposal != nil && !deleted
-        let height = open ? rowHeight + (showTools ? toolsHeight : 0) : rowHeight
+        let notched = geometry.notch != nil
+        let height = open ? geometry.inset + rowHeight + (showTools ? toolsHeight : 0) : (geometry.notch?.height ?? rowHeight)
         let wide = offersRedact(capture)
 
         VStack(spacing: 8) {
@@ -116,17 +126,19 @@ struct IslandView: View {
                 }
             }
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 14)
-            .frame(width: open ? (wide ? wideWidth : openWidth) : geometry.closedWidth, height: height, alignment: .top)
+            .padding(.top, geometry.inset)
+            .padding(.horizontal, 14 + ears)
+            .frame(width: (open ? (wide ? wideWidth : openWidth) : geometry.closedWidth) + ears * 2, height: height, alignment: .top)
             .background(shape.fill(.black))
             .clipShape(shape)
             // A hairline edge and soft shadow keep the pill readable over dark windows.
-            .overlay(shape.strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.35), radius: 12, y: 5)
-            // Drops in from just above and fades, instead of growing out of the screen edge.
-            .opacity(open ? 1 : 0)
-            .offset(y: open ? 0 : -10)
-            .scaleEffect(open ? 1 : 0.94, anchor: .top)
+            // At the notch it is the notch's own black, with no edge; elsewhere a hairline keeps it readable.
+            .overlay { if !notched { RoundedRectangle(cornerRadius: 23, style: .continuous).strokeBorder(.white.opacity(0.12), lineWidth: 0.5) } }
+            .shadow(color: .black.opacity(notched && !open ? 0 : 0.35), radius: 12, y: 5)
+            // At the notch it grows out of it; elsewhere it drops in from just above and fades.
+            .opacity(open || notched ? 1 : 0)
+            .offset(y: open || notched ? 0 : -10)
+            .scaleEffect(open || notched ? 1 : 0.94, anchor: .top)
             .onHover(perform: hoverChanged)
 
             // Hover preview: a larger look at the capture, below the island.
@@ -205,7 +217,15 @@ struct IslandView: View {
     }
 
     /// Fully rounded pill; the radius stays a pill as it grows taller on hover.
-    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 23, style: .continuous) }
+    /// Flares where the island meets the top edge, like the notch's own corners.
+    private var ears: CGFloat { geometry.notch == nil ? 0 : 8 }
+
+    /// Grows out of the notch on a notched screen; a round pill elsewhere.
+    private var shape: AnyShape {
+        geometry.notch == nil
+            ? AnyShape(RoundedRectangle(cornerRadius: 23, style: .continuous))
+            : AnyShape(NotchShape(ear: ears, bottom: open ? 23 : 10))
+    }
 
     private func row(_ capture: Capture) -> some View {
         let deleted = capture.trashedURL != nil
@@ -409,6 +429,7 @@ private struct IslandButton: View {
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(tint)
                 .contentTransition(.interpolate) // "Copy" → "Copied" cross-fades
+                .fixedSize() // never "Copy Te…": the Spacer before Delete gives way instead
         }
         .buttonStyle(IslandButtonStyle(tint: tint))
     }
@@ -481,5 +502,30 @@ private struct PointingHand: ViewModifier {
         guard on != pushed else { return }
         if on { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         pushed = on
+    }
+}
+
+/// The notch's outline: flat against the top edge with small outward flares, rounded at the bottom.
+struct NotchShape: Shape {
+    var ear: CGFloat
+    var bottom: CGFloat
+    var animatableData: CGFloat {
+        get { bottom }
+        set { bottom = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let b = min(bottom, (rect.width - ear * 2) / 2, rect.height - ear)
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        p.addQuadCurve(to: CGPoint(x: rect.minX + ear, y: rect.minY + ear), control: CGPoint(x: rect.minX + ear, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.minX + ear, y: rect.maxY - b))
+        p.addQuadCurve(to: CGPoint(x: rect.minX + ear + b, y: rect.maxY), control: CGPoint(x: rect.minX + ear, y: rect.maxY))
+        p.addLine(to: CGPoint(x: rect.maxX - ear - b, y: rect.maxY))
+        p.addQuadCurve(to: CGPoint(x: rect.maxX - ear, y: rect.maxY - b), control: CGPoint(x: rect.maxX - ear, y: rect.maxY))
+        p.addLine(to: CGPoint(x: rect.maxX - ear, y: rect.minY + ear))
+        p.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.minY), control: CGPoint(x: rect.maxX - ear, y: rect.minY))
+        p.closeSubpath()
+        return p
     }
 }

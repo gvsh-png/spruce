@@ -100,6 +100,8 @@ check(sensitive("GB82WEST12345698765432") == ["GB82WEST12345698765432"], "compac
 check(sensitive("GB82WEST12345698765433").isEmpty, "IBAN with a bad checksum")
 check(sensitive("export OPENAI_API_KEY=sk-proj-a1B2c3D4e5F6g7H8i9J0kLmN") == ["sk-proj-a1B2c3D4e5F6g7H8i9J0kLmN"], "API key")
 check(sensitive("token ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789 ok") == ["ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"], "GitHub token")
+let misread = "АРI_KEY=sk—1ive4f9Qх2LmZ8rТ1vВ7nK3pW6yHd0 end" // Vision's Cyrillic lookalikes and em dash
+check(sensitive(misread) == ["sk—1ive4f9Qх2LmZ8rТ1vВ7nK3pW6yHd0"], "key read with lookalike characters")
 check(sensitive("AKIAIOSFODNN7EXAMPLE") == ["AKIAIOSFODNN7EXAMPLE"], "AWS key")
 let jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
 check(sensitive("Bearer \(jwt)") == [jwt], "JWT is one range")

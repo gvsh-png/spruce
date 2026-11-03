@@ -339,7 +339,27 @@ enum TextRules {
     /// Parts of one OCR line that look private: email addresses, phone numbers, card numbers (Luhn-checked),
     /// IBANs (checksum-checked), API keys and tokens, JWTs. Overlapping matches are merged.
     /// The pill's Redact button covers exactly these.
-    static func sensitiveRanges(_ s: String) -> [Range<String.Index>] {
+    static func sensitiveRanges(_ line: String) -> [Range<String.Index>] {
+        // Vision sometimes reads code with lookalikes (Cyrillic "А", "х", an em dash for "-"). Match on
+        // a plain-ASCII copy with one character per character, then map the ranges back to `line`.
+        let original = Array(line.indices)
+        let s = String(line.map { lookalikes[$0] ?? $0 })
+        guard s.count == original.count else { return sensitiveMatches(line) }
+        let offsets = Dictionary(uniqueKeysWithValues: zip(s.indices, 0...))
+        return sensitiveMatches(s).compactMap { r in
+            guard let lo = offsets[r.lowerBound] else { return nil }
+            let hi = offsets[r.upperBound].map { original[$0] } ?? line.endIndex
+            return original[lo]..<hi
+        }
+    }
+
+    private static let lookalikes: [Character: Character] = [
+        "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O", "Р": "P", "С": "C", "Т": "T", "Х": "X",
+        "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x", "і": "i", "ј": "j", "ѕ": "s",
+        "—": "-", "–": "-", "‐": "-", "‑": "-", "−": "-",
+    ]
+
+    private static func sensitiveMatches(_ s: String) -> [Range<String.Index>] {
         let whole = NSRange(s.startIndex..., in: s)
         var found: [Range<String.Index>] = []
         for (pattern, valid) in sensitivePatterns {
