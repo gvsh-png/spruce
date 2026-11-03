@@ -3,6 +3,17 @@
     <channel>
         <title>Spruce</title>
         <item>
+            <title>0.1.7</title>
+            <pubDate>Tue, 03 Nov 2026 14:27:08 +0100</pubDate>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>0.1.7</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<p>Redact sensitive text in one click. Search inside your screenshots in the Manager. Copied and dragged screenshots arrive with their new name. Title Case keeps spellings like GitHub and iPhone. On Macs with a notch, the pill grows out of the notch.</p>
+]]></description>
+            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.7/Spruce.zip" length="1996130" type="application/octet-stream" sparkle:edSignature="PGKNT0h8g++M6ceUBMBDn+plQZZYsYzE1JqL680F9iwDuq/21nKCr/r6AjC21gCJih+Zk6/n+AVPFqLSMOABDQ=="/>
+        </item>
+        <item>
             <title>0.1.6</title>
             <pubDate>Tue, 03 Nov 2026 12:01:11 +0100</pubDate>
             <sparkle:version>8</sparkle:version>
@@ -23,17 +34,6 @@
             <description><![CDATA[<p>Scroll capture keeps up with fast scrolling, no longer says "too fast" when you scroll back up, and leaves the scrollbar out of the image.</p>
 ]]></description>
             <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.5/Spruce.zip" length="1908214" type="application/octet-stream" sparkle:edSignature="zqIRUF9bk3RETwOXdYUBZJa/v5OMsPFb1ypfV3pOWaqpFm3vRp1AWepmnAZgNqujF2Kv/dfmatI6r9AFiwHgAw=="/>
-        </item>
-        <item>
-            <title>0.1.4</title>
-            <pubDate>Tue, 03 Nov 2026 11:38:10 +0100</pubDate>
-            <sparkle:version>6</sparkle:version>
-            <sparkle:shortVersionString>0.1.4</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<p>Spruce now shows up in System Settings when scroll capture asks for Screen Recording.</p>
-]]></description>
-            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.4/Spruce.zip" length="1897406" type="application/octet-stream" sparkle:edSignature="7Qh/ozOmCC8yPIofnOcIEGxwZmhCC+ioBDkw2LdI6i+H4iVd/IMNkiNxonn19Ar2DxtbsScijdtKwOZwpVmDAA=="/>
         </item>
     </channel>
 </rss>
