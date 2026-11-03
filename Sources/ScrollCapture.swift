@@ -148,16 +148,26 @@ final class ScrollCapture {
 
     private func askForPermission() {
         let alert = NSAlert()
-        alert.messageText = "Allow Screen Recording for scroll capture"
-        alert.informativeText = "Turn on Spruce in System Settings → Privacy & Security → Screen & System Audio Recording, then quit and reopen Spruce. Spruce only looks at the area you choose, and only while you scroll."
+        alert.messageText = "Turn on Screen Recording for Spruce"
+        alert.informativeText = """
+            Scroll capture needs to see the area you pick while you scroll.
+
+            Click Open System Settings, switch Spruce on, and choose Quit & Reopen when macOS asks. \
+            If Spruce isn't in the list, click + under it and pick Spruce from Applications.
+
+            Spruce only looks at the area you choose, and only while you scroll.
+            """
         alert.addButton(withTitle: "Open System Settings")
         alert.addButton(withTitle: "Cancel")
         NSApp.activate(ignoringOtherApps: true)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        // Registers this exact copy of Spruce in the list (each update is a new copy to macOS).
-        if !CGRequestScreenCaptureAccess(),
-           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
-            NSWorkspace.shared.open(url)
+        Task {
+            // Asking ScreenCaptureKit for the screen is what adds Spruce to the list on current macOS;
+            // CGRequestScreenCaptureAccess alone often doesn't.
+            _ = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                NSWorkspace.shared.open(url)
+            }
         }
     }
 }
