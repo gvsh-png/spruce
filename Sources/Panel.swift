@@ -39,9 +39,9 @@ final class CapturePanel {
         let panel = KeyablePanel(contentRect: .zero, styleMask: [.nonactivatingPanel, .borderless, .fullSizeContentView],
                                  backing: .buffered, defer: false)
         panel.isFloatingPanel = true
-        // Above the menu bar itself, so the island can grow out of the notch over it. Set after
-        // isFloatingPanel, which resets the level to .floating.
-        panel.level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
+        // Above the menu bar, and above games and video players that go fullscreen with their own
+        // high-level window. Set after isFloatingPanel, which resets the level to .floating.
+        panel.level = .screenSaver
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.backgroundColor = .clear
