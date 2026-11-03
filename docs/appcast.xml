@@ -3,6 +3,17 @@
     <channel>
         <title>Spruce</title>
         <item>
+            <title>0.1.6</title>
+            <pubDate>Tue, 03 Nov 2026 12:01:11 +0100</pubDate>
+            <sparkle:version>8</sparkle:version>
+            <sparkle:shortVersionString>0.1.6</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<p>Scroll capture lines up reliably in real apps (sidebars, hover highlights, repeating layouts) and crops to just the scrolling area.</p>
+]]></description>
+            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.6/Spruce.zip" length="1918800" type="application/octet-stream" sparkle:edSignature="vdYivGxcRQh2p6HKvtZqRVMpf4eRCuLaG8uY9mIeVnH5oNEPe39GKDo7mNTD9UHtyYRBi2NJJJJO9IbloIdxDA=="/>
+        </item>
+        <item>
             <title>0.1.5</title>
             <pubDate>Tue, 03 Nov 2026 11:46:11 +0100</pubDate>
             <sparkle:version>7</sparkle:version>
@@ -23,17 +34,6 @@
             <description><![CDATA[<p>Spruce now shows up in System Settings when scroll capture asks for Screen Recording.</p>
 ]]></description>
             <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.4/Spruce.zip" length="1897406" type="application/octet-stream" sparkle:edSignature="7Qh/ozOmCC8yPIofnOcIEGxwZmhCC+ioBDkw2LdI6i+H4iVd/IMNkiNxonn19Ar2DxtbsScijdtKwOZwpVmDAA=="/>
-        </item>
-        <item>
-            <title>0.1.3</title>
-            <pubDate>Tue, 03 Nov 2026 11:33:09 +0100</pubDate>
-            <sparkle:version>5</sparkle:version>
-            <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<p>Scroll capture keeps its Screen Recording permission across updates. Turn it on once more after this update and it stays on.</p>
-]]></description>
-            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.3/Spruce.zip" length="1896544" type="application/octet-stream" sparkle:edSignature="ttuYqCSq3ou6y5QAWJ52GZt3M+yJUSEU1wEMQatExLpe9CFaxnwRFvzrZnqWsvAYAK4cdDqMerAHTyq9MUs6Cw=="/>
         </item>
     </channel>
 </rss>
