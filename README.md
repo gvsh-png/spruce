@@ -98,6 +98,7 @@ Spruce installs into `/Applications`, opens, and lives in your menu bar. From th
 - Copies each screenshot to the clipboard the moment it's saved
 - Screenshots go to the Trash after 14 days unless you keep, move or sort them
 - Private apps: shots of 1Password, Messages and anything you add keep their name and are never read
+- One-click Redact: when a shot shows an email, phone or card number, IBAN or API key, "Redact" on the pill covers exactly those words and copies the result. Undo brings back the original
 - Finder tags by kind (Chat, Code, Receipt, Document, …) and optional sorting into your folders
 - Rename the screenshots you already have, all at once, as one Undo
 - Full rename history, every step undoable

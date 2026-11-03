@@ -352,6 +352,19 @@ struct IslandPage: View {
                     .disabled(!state.prefs.peekEnabled)
                     .opacity(state.prefs.peekEnabled ? 1 : 0.4)
                 }
+                ThemeSection(title: "Sensitive text", footer: "Emails, phone and card numbers, IBANs and API keys. Found and covered on your Mac.") {
+                    ThemeToggle(title: "Offer to redact sensitive text",
+                                detail: "Adds Redact to the pill: one click covers them and copies the result.",
+                                isOn: $state.prefs.offerRedact)
+                    ThemeRow(title: "Cover with") {
+                        Picker("Cover with", selection: $state.prefs.redactStyle) {
+                            ForEach(RedactStyle.allCases) { Text($0.label).tag($0) }
+                        }
+                        .labelsHidden().fixedSize()
+                    }
+                    .disabled(!state.prefs.offerRedact)
+                    .opacity(state.prefs.offerRedact ? 1 : 0.4)
+                }
                 ThemeSection(title: "Feel", footer: "Animations calm down when Reduce Motion is on in System Settings → Accessibility.") {
                     ThemeToggle(title: "Bouncy opening", isOn: $state.prefs.bouncy)
                     ThemeToggle(title: "Trackpad tick", detail: "When a name is applied.", isOn: $state.prefs.haptic)

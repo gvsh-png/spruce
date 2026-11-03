@@ -334,6 +334,97 @@ enum TextRules {
         return allowed.first { $0.lowercased() == a }
     }
 
+    // MARK: Sensitive text
+
+    /// Parts of one OCR line that look private: email addresses, phone numbers, card numbers (Luhn-checked),
+    /// IBANs (checksum-checked), API keys and tokens, JWTs. Overlapping matches are merged.
+    /// The pill's Redact button covers exactly these.
+    static func sensitiveRanges(_ s: String) -> [Range<String.Index>] {
+        let whole = NSRange(s.startIndex..., in: s)
+        var found: [Range<String.Index>] = []
+        for (pattern, valid) in sensitivePatterns {
+            for match in pattern.matches(in: s, range: whole) {
+                guard let range = Range(match.range, in: s), valid(String(s[range])) else { continue }
+                found.append(range)
+            }
+        }
+        // IBANs: the spaced form can run into the next word ("… 0130 00 EUR"), so drop trailing groups until it checks out.
+        for match in ibanPattern.matches(in: s, range: whole) {
+            guard var range = Range(match.range, in: s) else { continue }
+            while !isIBAN(String(s[range])) {
+                guard let space = s[range].lastIndex(of: " ") else { range = range.lowerBound..<range.lowerBound; break }
+                range = range.lowerBound..<space
+            }
+            if !range.isEmpty { found.append(range) }
+        }
+        var merged: [Range<String.Index>] = []
+        for range in found.sorted(by: { $0.lowerBound < $1.lowerBound }) {
+            if let last = merged.last, range.lowerBound <= last.upperBound {
+                merged[merged.count - 1] = last.lowerBound..<max(last.upperBound, range.upperBound)
+            } else {
+                merged.append(range)
+            }
+        }
+        return merged
+    }
+
+    private static func regex(_ pattern: String) -> NSRegularExpression {
+        try! NSRegularExpression(pattern: pattern) // literals below; a typo fails the self-check at once
+    }
+
+    private static let sensitivePatterns: [(NSRegularExpression, (String) -> Bool)] = [
+        // Email addresses.
+        (regex(#"(?<![A-Za-z0-9._%+\-])[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)*\.[A-Za-z]{2,}"#), { _ in true }),
+        // Card numbers: 13–19 digits, optionally in groups of 3–6, passing the Luhn check.
+        (regex(#"(?<![\d\-])\d(?:[ \-]?\d){12,18}(?![\d\-])"#), isCardNumber),
+        // Phone numbers: international (+47 912 34 567) or North American ((415) 555-0132, 415-555-0132).
+        (regex(#"(?<![\w+])(?:\+\d{1,3}[ .\-]?)?\(?\d{2,4}\)?(?:[ .\-]?\d{2,4}){2,4}(?![\w])"#), isPhoneNumber),
+        // Known key and token shapes: OpenAI/Anthropic, Stripe, GitHub, Slack, AWS, Google, GitLab, JWT.
+        (regex(#"(?<![A-Za-z0-9_\-])(?:sk-(?:proj-|ant-)?[A-Za-z0-9_\-]{20,}|(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{16,}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|xox[abprs]-[A-Za-z0-9\-]{10,}|A(?:KIA|SIA)[0-9A-Z]{16}|AIza[0-9A-Za-z_\-]{35}|glpat-[A-Za-z0-9_\-]{20,}|eyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,})"#), { _ in true }),
+        // Any other long random-looking string: 32+ characters mixing upper, lower and digits.
+        (regex(#"(?<![A-Za-z0-9_\-])[A-Za-z0-9_\-]{32,}(?![A-Za-z0-9_\-])"#), isRandomToken),
+    ]
+
+    private static let ibanPattern = regex(#"(?<![A-Za-z0-9])[A-Z]{2}\d{2}(?:[A-Z0-9]{11,30}|(?: [A-Z0-9]{1,4}){3,8})(?![A-Za-z0-9])"#)
+
+    static func isCardNumber(_ s: String) -> Bool {
+        let groups = s.split { $0 == " " || $0 == "-" }
+        guard groups.count == 1 || groups.allSatisfy({ (3...6).contains($0.count) }) else { return false } // "4242 4242 …", not two numbers side by side
+        let digits = s.compactMap(\.wholeNumberValue)
+        guard (13...19).contains(digits.count), Set(digits).count > 1 else { return false }
+        var sum = 0
+        for (i, d) in digits.reversed().enumerated() {
+            let v = i % 2 == 1 ? d * 2 : d
+            sum += v > 9 ? v - 9 : v
+        }
+        return sum % 10 == 0
+    }
+
+    static func isPhoneNumber(_ s: String) -> Bool {
+        let digits = s.filter(\.isNumber).count
+        guard (9...15).contains(digits) else { return false }
+        // A leading + or the North American shape; anything else is more likely a date, ID or amount.
+        return s.hasPrefix("+") || s.range(of: #"^\(?\d{3}\)?[ .\-]?\d{3}[ .\-]\d{4}$"#, options: .regularExpression) != nil
+    }
+
+    static func isIBAN(_ s: String) -> Bool {
+        let compact = s.filter { $0 != " " }
+        guard (15...34).contains(compact.count) else { return false }
+        // ISO 13616: move the first four characters to the end, letters become 10–35, the number mod 97 is 1.
+        var remainder = 0
+        for c in compact.dropFirst(4) + compact.prefix(4) {
+            guard let value = c.wholeNumberValue ?? c.unicodeScalars.first.flatMap({ c.isASCII && c.isUppercase ? Int($0.value) - 55 : nil })
+            else { return false }
+            for digit in String(value) { remainder = (remainder * 10 + digit.wholeNumberValue!) % 97 }
+        }
+        return remainder == 1
+    }
+
+    static func isRandomToken(_ s: String) -> Bool {
+        s.contains(where: \.isUppercase) && s.contains(where: \.isLowercase)
+            && s.filter(\.isNumber).count >= 4 && Set(s).count >= 14
+    }
+
     // MARK: Helpers
 
     private static func cased(_ token: String, _ style: NamingStyle, _ spellings: [String: String]) -> String {

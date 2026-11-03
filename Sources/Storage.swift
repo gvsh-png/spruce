@@ -26,6 +26,9 @@ struct Preferences: Codable, Equatable {
     var expireDays = 14
     /// When the same thing is captured twice within a minute, keep only the newest.
     var collapseBursts = true
+    /// Show "Redact" on the pill when OCR finds emails, phone or card numbers, IBANs or keys.
+    var offerRedact = true
+    var redactStyle: RedactStyle = .solid
     /// Add a Finder tag such as "Receipt" or "Code".
     var tagsEnabled = true
     /// Bundle IDs of apps whose screenshots keep their name and never reach any AI.
