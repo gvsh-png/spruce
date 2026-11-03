@@ -9,7 +9,7 @@
             <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <sparkle:releaseNotesLink>https://gvsh-png.github.io/spruce/Spruce.md</sparkle:releaseNotesLink>
+            <description><![CDATA[<p>Scroll capture (⌥⇧⌘4), QR codes open from the pill, bug fixes and speed-ups.</p>]]></description>
             <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.2/Spruce.zip" length="1892545" type="application/octet-stream" sparkle:edSignature="YpNMXHb5GAUWEFn6rb2q8Nz+r4QtLqMWnuLlj51DmEMIpD1UpA6Lggq396tqGesqDuBf9GLDA/6De2ljd7JSCQ=="/>
         </item>
         <item>
