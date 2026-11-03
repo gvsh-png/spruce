@@ -6,6 +6,14 @@ Spruce is a macOS menu bar app that watches for new screenshots, reads their tex
 Screenshot 2026-11-02 at 12.34.56 PM.png  →  slack-message-from-alice-about-q3-budget.png
 ```
 
+![Spruce renaming a new screenshot](docs/media/demo.gif)
+
+[Watch the demo video (MP4)](https://gvsh-png.github.io/spruce/media/demo.mp4)
+
+| Reading the screenshot | Renamed |
+|---|---|
+| ![Spruce naming a screenshot](docs/media/naming.png) | ![Spruce after renaming a screenshot](docs/media/renamed.png) |
+
 Requires macOS 14 or later, Apple Silicon first. Apple's on-device model needs macOS 26 with Apple Intelligence turned on.
 
 ## Install
