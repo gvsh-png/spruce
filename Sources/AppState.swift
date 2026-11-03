@@ -88,6 +88,9 @@ final class AppState {
     private let watcher = FolderWatcher()
     /// The last live capture that was applied, for burst detection.
     private var lastLive: (id: UUID, words: Set<String>, app: String?, date: Date)?
+    /// The screenshot auto-copied on arrival and the clipboard's change count right after, so the
+    /// clipboard can be pointed at the renamed file if nothing else was copied meanwhile.
+    private var autoCopied: (url: URL, change: Int)?
     private var expiryTimer: Timer?
 
     init() {
@@ -125,7 +128,9 @@ final class AppState {
         // Undo after Delete) is not a new screenshot.
         if capture?.url == url || queue.contains(where: { $0.url == url }) { return }
         let front = NSWorkspace.shared.frontmostApplication
-        if prefs.copyToClipboard { Self.copyToClipboard(url) }
+        if prefs.copyToClipboard, Self.copyToClipboard(url) {
+            autoCopied = (url, NSPasteboard.general.changeCount)
+        }
 
         // Private apps: keep the original name and never send anything to a model.
         if let id = front?.bundleIdentifier, prefs.privateApps.contains(id) { return }
@@ -184,8 +189,13 @@ final class AppState {
         capture = nil
         CapturePanel.shared.hide()
         guard current.trashedURL == nil else { return } // deleted: nothing to apply
-        guard current.appliedURL == nil else { return } // already applied when dragged out
         guard var proposal = current.proposal else { return } // still naming: `drain` applies it when ready
+        if let done = current.appliedURL {
+            // Already applied when copied or dragged out: start from there, so a later Move, Keep or
+            // new name still takes effect. Unchanged, this is a no-op.
+            proposal.url = done
+            proposal.live = false
+        }
         if let edited = edited ?? current.edited, !edited.trimmingCharacters(in: .whitespaces).isEmpty { proposal.stem = edited }
         if let dir { proposal.dir = dir }
         if keep {
@@ -195,8 +205,8 @@ final class AppState {
         apply(proposal)
     }
 
-    /// Applies the name now but keeps the island open; used when the thumbnail is dragged out,
-    /// so the file lands in the other app under its new name. Returns where the file is.
+    /// Applies the name now but keeps the island open; used when the thumbnail is dragged out or
+    /// copied, so the file lands in the other app under its new name. Returns where the file is.
     func applyCaptureNow(stem edited: String?) -> URL? {
         guard let current = capture else { return nil }
         if let done = current.appliedURL { return done }
@@ -327,6 +337,12 @@ final class AppState {
                 if prefs.haptic { NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now) }
                 renameCount += 1
                 justRenamed = true
+                // Auto-copied on arrival under the old name: point the clipboard at the renamed file,
+                // unless something else has been copied since.
+                if let copied = autoCopied, copied.url == p.url {
+                    autoCopied = nil
+                    if NSPasteboard.general.changeCount == copied.change { Self.copyToClipboard(dest) }
+                }
                 Task { try? await Task.sleep(nanoseconds: 1_600_000_000); justRenamed = false }
             }
             return dest
@@ -463,18 +479,21 @@ final class AppState {
 
     // MARK: Actions
 
-    /// Copies the image itself, so it pastes into Slack, Messages, Mail or a document right away.
-    static func copyToClipboard(_ url: URL) {
+    /// Copies the image and the file together: image editors paste the pixels, while Finder, Mail
+    /// and chat apps paste the file under its name. Returns false if the file couldn't be read.
+    @discardableResult
+    static func copyToClipboard(_ url: URL) -> Bool {
         let item = NSPasteboardItem()
         // PNG bytes as they are: no decode, no 50 MB TIFF for a Retina screenshot.
         if url.pathExtension.lowercased() == "png", let png = try? Data(contentsOf: url) {
             item.setData(png, forType: .png)
         } else {
-            guard let tiff = NSImage(contentsOf: url)?.tiffRepresentation else { return }
+            guard let tiff = NSImage(contentsOf: url)?.tiffRepresentation else { return false }
             item.setData(tiff, forType: .tiff)
         }
+        item.setString(url.absoluteString, forType: .fileURL)
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.writeObjects([item])
+        return NSPasteboard.general.writeObjects([item])
     }
 
     static func copyText(_ text: String) {
