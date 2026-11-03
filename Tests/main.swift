@@ -16,6 +16,24 @@ check(TextRules.stem(words: ["Café", "Menü"], style: .kebab, date: nil) == "ca
 check(TextRules.stem(words: ["../../etc/passwd"], style: .kebab, date: nil) == "etc-passwd", "no path characters survive")
 check(TextRules.stem(words: ["日本語", "メモ"], style: .kebab, date: nil) == "日本語-メモ", "non-Latin kept")
 check(TextRules.stem(words: ["receipt"], style: .kebab, date: date) == "2026-11-02-receipt", "date prefix")
+// Title Case keeps real spellings from the screenshot's text
+check(TextRules.stem(words: ["github", "pr", "review"], style: .title, date: nil, casingSource: "Pull request · GitHub") == "GitHub Pr Review", "OCR spelling")
+check(TextRules.stem(words: ["iphone", "pdf", "receipt", "usd"], style: .title, date: nil, casingSource: "iPhone 17 Pro\nReceipt.PDF\nTotal 999 USD") == "iPhone PDF Receipt USD", "brand and acronyms from OCR")
+check(TextRules.stem(words: ["macOS", "ID", "ALICE"], style: .title, date: nil) == "macOS ID Alice", "own casing kept, long caps tamed")
+check(TextRules.stem(words: ["sale"], style: .title, date: nil, casingSource: "SUMMER SALE\nShop now") == "Sale", "shouted headings ignored")
+check(TextRules.stem(words: ["id"], style: .title, date: nil, casingSource: "Order ID\nYour Id card") == "Id", "plain sighting vetoes")
+check(TextRules.stem(words: ["github"], style: .title, date: nil, casingSource: "GitHub\ngithub.com/spruce") == "GitHub", "lowercase URL doesn't veto")
+check(TextRules.stem(words: ["github"], style: .kebab, date: nil, casingSource: "GitHub") == "github", "kebab stays lowercase")
+check(TextRules.stem(words: ["slack"], style: .title, date: date) == "2026-11-02 Slack", "title date prefix")
+
+// Hand-edited names
+check(TextRules.normalizeEdited("iPhone 17 Pro", style: .title) == "iPhone 17 Pro", "user casing wins")
+check(TextRules.normalizeEdited("2026-11-03 Slack Alice", style: .title) == "2026-11-03 Slack Alice", "date kept in title")
+check(TextRules.normalizeEdited("2026-11-03_slack_alice", style: .snake) == "2026-11-03_slack_alice", "date kept in snake")
+check(TextRules.normalizeEdited("2026-11-03 Slack Alice", style: .snake) == "2026-11-03_slack_alice", "snake lowercases edits")
+check(TextRules.normalizeEdited("2026-11-03-slack", style: .kebab) == "2026-11-03-slack", "kebab unchanged")
+check(TextRules.normalizeEdited(" ../My Notes! ", style: .title) == "My Notes", "edits sanitized")
+check(TextRules.normalizeEdited("   ", style: .title) == nil, "empty edit")
 check(TextRules.stem(words: ["!!!", "  "], style: .kebab, date: nil) == nil, "nothing usable")
 check(TextRules.stem(words: [], style: .kebab, date: nil) == nil, "empty")
 

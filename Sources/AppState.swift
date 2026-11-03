@@ -150,9 +150,8 @@ final class AppState {
         while !queue.isEmpty {
             let job = queue.removeFirst()
             queued = queue.count
-            let url = job.url, style = prefs.style
-            let onPartial: ([String]) -> Void = { [weak self] words in
-                let text = TextRules.stem(words: words, style: style, date: nil)
+            let url = job.url
+            let onPartial: (String?) -> Void = { [weak self] text in
                 Task { @MainActor in
                     guard let self, self.capture?.url == url, self.capture?.proposal == nil else { return }
                     self.capture?.partial = text
@@ -248,7 +247,8 @@ final class AppState {
     // MARK: Pipeline
 
     /// OCR, AI and naming rules. Reads the file but never changes it.
-    private func propose(_ url: URL, app: String?, date: Date, onPartial: (([String]) -> Void)? = nil) async -> Proposal? {
+    /// `onPartial` gets the streamed name, cased with the same OCR text as the final one.
+    private func propose(_ url: URL, app: String?, date: Date, onPartial: ((String?) -> Void)? = nil) async -> Proposal? {
         let prefs = self.prefs
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
 
@@ -267,12 +267,15 @@ final class AppState {
             : nil
 
         // 3. Ask the model. Retry connection problems twice (after 2 s, then 6 s), then fall back.
+        let partial: (([String]) -> Void)? = onPartial.map { report in
+            { words in report(TextRules.stem(words: words, style: prefs.style, date: nil, casingSource: text)) }
+        }
         let namer = Namer(prefs: prefs, apiKey: Keychain.get())
         var suggestion: Suggestion?
         var provider = "fallback"
         for attempt in 0..<3 {
             do {
-                let (s, p) = try await namer.suggest(NamingInput(text: text, image: image), onPartial: onPartial)
+                let (s, p) = try await namer.suggest(NamingInput(text: text, image: image), onPartial: partial)
                 suggestion = TextRules.cleaned(s)
                 provider = p
                 lastError = nil
@@ -288,7 +291,8 @@ final class AppState {
         }
 
         // 4. Safe name, folder and tag.
-        let stem = suggestion.flatMap { TextRules.stem(words: $0.words, style: prefs.style, date: prefs.includeDate ? date : nil) }
+        let stem = suggestion.flatMap { TextRules.stem(words: $0.words, style: prefs.style, date: prefs.includeDate ? date : nil,
+                                                       casingSource: text) }
             ?? TextRules.fallbackStem(app: app, date: date, style: prefs.style)
         let here = url.deletingLastPathComponent()
         var dir = here
@@ -307,8 +311,9 @@ final class AppState {
     func apply(_ p: Proposal, batch: UUID? = nil) -> URL? {
         guard FileManager.default.fileExists(atPath: p.url.path) else { return nil } // deleted or moved meanwhile
         do {
-            // Names may have been edited by hand (panel, bulk list): run them through the same rules.
-            let stem = TextRules.stem(words: [p.stem], style: prefs.style, date: nil) ?? p.stem
+            // Names may have been edited by hand (panel, bulk list): make them safe, but keep the
+            // user's casing and the date prefix as they are.
+            let stem = TextRules.normalizeEdited(p.stem, style: prefs.style) ?? p.stem
             // Marked only after the move worked; the watcher runs on this same thread, so it can't
             // see the new name before the mark is on it.
             let dest = try FileOps.move(p.url, toDir: p.dir, stem: stem, style: prefs.style)

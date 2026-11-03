@@ -115,19 +115,46 @@ enum TextRules {
 
     /// Turns model words into a filesystem-safe name without extension,
     /// e.g. ["Slack", "Alice's", "Q3 budget!"] -> "slack-alices-q3-budget".
+    /// In Title Case, words spelled with their own capitals in `casingSource` (the OCR text)
+    /// keep that spelling: "github" -> "GitHub" when the screenshot says GitHub.
     /// Returns nil when nothing usable is left.
-    static func stem(words: [String], style: NamingStyle, date: Date?, maxLength: Int = maxNameLength) -> String? {
-        let tokens = words
+    static func stem(words: [String], style: NamingStyle, date: Date?, casingSource: String? = nil,
+                     maxLength: Int = maxNameLength) -> String? {
+        let spellings = style == .title ? knownSpellings(casingSource ?? "") : [:]
+        let tokens = sanitizedTokens(words).map { cased($0, style, spellings) }
+        guard !tokens.isEmpty else { return nil }
+        return joined(tokens, prefix: date.map { dayFormatter.string(from: $0) } ?? "", style: style, maxLength: maxLength)
+    }
+
+    /// Makes a hand-edited name safe without re-casing it in Title Case (the user's spelling wins)
+    /// and keeps a leading "yyyy-MM-dd" date as typed. Kebab and snake are still lowercased.
+    static func normalizeEdited(_ stem: String, style: NamingStyle, maxLength: Int = maxNameLength) -> String? {
+        let typed = stem.trimmingCharacters(in: .whitespacesAndNewlines)
+        var rest = Substring(typed)
+        var prefix = ""
+        if let r = typed.range(of: #"^\d{4}-\d{2}-\d{2}(?!\d)"#, options: .regularExpression) {
+            prefix = String(typed[r])
+            rest = typed[r.upperBound...]
+        }
+        let tokens = sanitizedTokens([String(rest)]).map { style == .title ? $0 : $0.lowercased() }
+        if tokens.isEmpty { return prefix.isEmpty ? nil : prefix }
+        return joined(tokens, prefix: prefix, style: style, maxLength: maxLength)
+    }
+
+    /// Words with only letters and digits left, diacritics folded and apostrophes dropped.
+    private static func sanitizedTokens(_ words: [String]) -> [String] {
+        words
             .map {
                 $0.folding(options: [.diacriticInsensitive, .widthInsensitive], locale: nil)
                     .replacingOccurrences(of: "'", with: "")
                     .replacingOccurrences(of: "\u{2019}", with: "")
             }
             .flatMap { $0.split { !($0.isLetter || $0.isNumber) }.map(String.init) }
-            .map { cased($0, style) }
-        guard !tokens.isEmpty else { return nil }
+    }
 
-        let prefix = date.map { dayFormatter.string(from: $0) } ?? ""
+    /// Joins tokens after `prefix` with the style's separator, stopping at a word boundary
+    /// before `maxLength`. `tokens` must not be empty.
+    private static func joined(_ tokens: [String], prefix: String, style: NamingStyle, maxLength: Int) -> String {
         var out = prefix
         for token in tokens {
             let next = out.isEmpty ? token : out + style.separator + token
@@ -193,8 +220,39 @@ enum TextRules {
 
     // MARK: Helpers
 
-    private static func cased(_ token: String, _ style: NamingStyle) -> String {
-        style == .title ? token.prefix(1).uppercased() + token.dropFirst().lowercased() : token.lowercased()
+    private static func cased(_ token: String, _ style: NamingStyle, _ spellings: [String: String]) -> String {
+        guard style == .title else { return token.lowercased() }
+        if let known = spellings[token.lowercased()] { return known }
+        if hasOwnCasing(token) { return token }
+        return token.prefix(1).uppercased() + token.dropFirst().lowercased()
+    }
+
+    /// "GitHub", "iPhone", "macOS" (capitals after a lowercase letter) or a short acronym like "PDF".
+    /// Longer all-caps words ("ALICE", "TOTAL") are shouting, not spelling.
+    private static func hasOwnCasing(_ token: String) -> Bool {
+        let rest = token.dropFirst()
+        if rest.contains(where: \.isUppercase) && token.contains(where: \.isLowercase) { return true }
+        return (2...4).contains(token.count) && token.allSatisfy { $0.isLetter && $0.isUppercase }
+    }
+
+    /// Lowercased word -> its spelling in the OCR text, for words that carry their own casing.
+    /// Skips all-caps headings ("ORDER SUMMARY") and words also seen capitalized plainly ("Total" and "TOTAL").
+    /// All-lowercase sightings ("github.com" in a URL bar) don't count against a spelling.
+    static func knownSpellings(_ text: String) -> [String: String] {
+        var map: [String: String] = [:]
+        var plain = Set<String>()
+        for line in text.split(whereSeparator: \.isNewline) {
+            let shouted = !line.contains(where: \.isLowercase)
+            for token in sanitizedTokens([String(line)]) {
+                let key = token.lowercased()
+                if hasOwnCasing(token) && !(shouted && token.allSatisfy(\.isUppercase)) {
+                    if map[key] == nil { map[key] = token }
+                } else if token.first?.isUppercase == true && token.contains(where: \.isLowercase) {
+                    plain.insert(key)
+                }
+            }
+        }
+        return map.filter { !plain.contains($0.key) }
     }
 
     static let dayFormatter = formatter("yyyy-MM-dd")
