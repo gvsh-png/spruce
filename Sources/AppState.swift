@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import ServiceManagement
 import UserNotifications
 
 /// A proposed rename, ready to apply or to edit first (capture panel, bulk rename).
@@ -63,6 +64,7 @@ final class AppState {
             prefs.save()
             if prefs.watching != oldValue.watching || prefs.watchFolders != oldValue.watchFolders
                 || prefs.prefixList != oldValue.prefixList { restartWatcher() }
+            if prefs.openAtLogin != oldValue.openAtLogin { Self.syncLoginItem(prefs.openAtLogin) }
         }
     }
     var history: [HistoryEntry] = History.load()
@@ -103,6 +105,7 @@ final class AppState {
 
     init() {
         prefs = Preferences.load()
+        Self.syncLoginItem(prefs.openAtLogin)
         watcher.onScreenshot = { [weak self] url in self?.screenshotArrived(url) }
         restartWatcher()
         Notifier.setUp(self)
@@ -552,6 +555,19 @@ final class AppState {
     }
 
     // MARK: Actions
+
+    /// Adds or removes Spruce as a login item (System Settings → General → Login Items).
+    static func syncLoginItem(_ on: Bool) {
+        // Only the installed copy: a build run from Xcode or a download folder shouldn't become the login item.
+        guard Bundle.main.bundleURL.path.hasPrefix("/Applications/") else { return }
+        let app = SMAppService.mainApp
+        do {
+            if on, app.status != .enabled { try app.register() }
+            if !on, app.status == .enabled { try app.unregister() }
+        } catch {
+            // Rare (for example when run from a disk image); the toggle simply stays without effect.
+        }
+    }
 
     /// Copies the image and the file together: image editors paste the pixels, while Finder, Mail
     /// and chat apps paste the file under its name. Returns false if the file couldn't be read.

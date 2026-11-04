@@ -368,6 +368,13 @@ enum TextRules {
                 found.append(range)
             }
         }
+        // Values written after a label like API_KEY=, token: or Secret = are secret whatever their shape,
+        // even when OCR has mangled a known prefix ("sk-" read as "51").
+        for match in labeledSecret.matches(in: s, range: whole) {
+            guard let range = Range(match.range(at: 1), in: s) else { continue }
+            let value = s[range]
+            if value.count >= 16, value.contains(where: \.isLetter), value.contains(where: \.isNumber) { found.append(range) }
+        }
         // IBANs: the spaced form can run into the next word ("… 0130 00 EUR"), so drop trailing groups until it checks out.
         for match in ibanPattern.matches(in: s, range: whole) {
             guard var range = Range(match.range, in: s) else { continue }
@@ -404,6 +411,8 @@ enum TextRules {
         // Any other long random-looking string: 32+ characters mixing upper, lower and digits.
         (regex(#"(?<![A-Za-z0-9_\-])[A-Za-z0-9_\-]{32,}(?![A-Za-z0-9_\-])"#), isRandomToken),
     ]
+
+    private static let labeledSecret = regex(#"(?i)(?:key|ke|token|secret|passw(?:or)?d|pwd|auth|bearer)["']?\s*[=:]\s*["']?([A-Za-z0-9_\-+/.=]{16,})"#)
 
     private static let ibanPattern = regex(#"(?<![A-Za-z0-9])[A-Z]{2}\d{2}(?:[A-Z0-9]{11,30}|(?: [A-Z0-9]{1,4}){3,8})(?![A-Za-z0-9])"#)
 

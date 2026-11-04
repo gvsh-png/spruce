@@ -269,6 +269,11 @@ struct GeneralPage: View {
                 .font(Theme.button).buttonStyle(IslandButtonStyle())
             }
 
+            ThemeSection(title: "Startup") {
+                ThemeToggle(title: "Open at login", detail: "Starts Spruce when you log in, so new screenshots are always named.",
+                            isOn: $state.prefs.openAtLogin)
+            }
+
             ThemeSection(title: "Names") {
                 ThemeRow(title: "Style", detail: example) {
                     Picker("Style", selection: $state.prefs.style) {

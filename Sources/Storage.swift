@@ -10,6 +10,8 @@ struct Preferences: Codable, Equatable {
     var notify = true
     /// Put each new screenshot on the clipboard the moment it is saved, before renaming.
     var copyToClipboard = true
+    /// Start Spruce when you log in, so screenshots keep getting named after a restart.
+    var openAtLogin = true
     /// Show the capture panel (name, Copy, Copy Text, Move, Delete) after each screenshot.
     var showPanel = true
     /// Seconds the island stays after the name appears (hovering or typing pauses it).

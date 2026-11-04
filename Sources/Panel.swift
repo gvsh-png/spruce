@@ -190,6 +190,9 @@ struct IslandView: View {
             while idle < state.prefs.islandSeconds {
                 try? await Task.sleep(nanoseconds: 250_000_000)
                 if Task.isCancelled { return }
+                // onHover misses a pill that appears under a cursor that isn't moving.
+                let over = pointerOver()
+                if over != hovering { hoverChanged(over) }
                 idle = (hovering || editing || choosingFolder) ? 0 : idle + 0.25
             }
             state.finishCapture(stem: name)
@@ -201,6 +204,16 @@ struct IslandView: View {
         }
         .onExitCommand { state.finishCapture(stem: name) }
         .environment(\.colorScheme, .dark)
+    }
+
+    /// Whether the pointer is over the island right now, from its position on screen.
+    private func pointerOver() -> Bool {
+        guard let screen = NSScreen.main else { return false }
+        let width = (offersRedact(state.capture) ? wideWidth : openWidth) + ears * 2
+        let height = geometry.inset + rowHeight + (showHover ? toolsHeight : 0)
+        let frame = NSRect(x: screen.frame.midX - width / 2, y: screen.frame.maxY - geometry.top - height,
+                           width: width, height: height)
+        return frame.contains(NSEvent.mouseLocation)
     }
 
     private func hoverChanged(_ inside: Bool) {
@@ -301,6 +314,12 @@ struct IslandView: View {
                         .textFieldStyle(.plain)
                         .focused($editing)
                         .onSubmit { state.finishCapture(stem: name) }
+                        // Not editing: the whole name, shortened in the middle, instead of the field's hard cut
+                        // (which made a long name look like a shorter one). Clicks go through to the field.
+                        .foregroundStyle(editing ? Color.white : Color.clear)
+                        .overlay(alignment: .leading) {
+                            if !editing { Text(name).lineLimit(1).truncationMode(.middle).allowsHitTesting(false) }
+                        }
                     Text(".\(capture.url.pathExtension.lowercased())").foregroundStyle(.white.opacity(0.45))
                 }
                 .font(.system(size: 13, design: .monospaced))
