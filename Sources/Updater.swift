@@ -5,7 +5,7 @@ import Sparkle
 /// Auto-updates via Sparkle. Checks the feed (SUFeedURL in Info.plist) once a day, verifies each
 /// download against the public key (SUPublicEDKey), and installs on quit or when the user says so.
 @MainActor @Observable
-final class Updater: NSObject, SPUStandardUserDriverDelegate {
+final class Updater: NSObject, SPUStandardUserDriverDelegate, SPUUpdaterDelegate {
     static let shared = Updater()
 
     @ObservationIgnored private var controller: SPUStandardUpdaterController!
@@ -26,7 +26,7 @@ final class Updater: NSObject, SPUStandardUserDriverDelegate {
 
     override private init() {
         super.init()
-        controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: self)
+        controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: self)
         automaticallyChecks = controller.updater.automaticallyChecksForUpdates
         automaticallyDownloads = controller.updater.automaticallyDownloadsUpdates
         observation = controller.updater.observe(\.canCheckForUpdates, options: [.initial, .new]) { [weak self] updater, _ in
@@ -35,8 +35,20 @@ final class Updater: NSObject, SPUStandardUserDriverDelegate {
     }
 
     func checkForUpdates() {
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
         controller.checkForUpdates(nil)
+    }
+
+    /// GitHub Pages caches the feed for up to 10 minutes; a parameter that changes on every check asks
+    /// for the current file, so a check right after a release doesn't say "up to date".
+    nonisolated func feedParameters(for updater: SPUUpdater, sendingSystemProfile: Bool) -> [[String: String]] {
+        [["key": "t", "value": String(Int(Date().timeIntervalSince1970)), "displayKey": "t", "displayValue": "now"]]
+    }
+
+    /// Sparkle's alerts ("You're up to date", errors) block Spruce's menu until answered, so they must
+    /// never open hidden behind other apps.
+    nonisolated func standardUserDriverWillShowModalAlert() {
+        Task { @MainActor in NSApp.activate() }
     }
 
     static var version: String {
@@ -52,6 +64,6 @@ final class Updater: NSObject, SPUStandardUserDriverDelegate {
     /// update window isn't left hidden behind other windows.
     nonisolated func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
         guard handleShowingUpdate, !state.userInitiated else { return }
-        Task { @MainActor in NSApp.activate(ignoringOtherApps: true) }
+        Task { @MainActor in NSApp.activate() }
     }
 }
