@@ -3,6 +3,18 @@
     <channel>
         <title>Spruce</title>
         <item>
+            <title>0.1.9</title>
+            <pubDate>Wed, 04 Nov 2026 12:44:04 +0100</pubDate>
+            <sparkle:version>11</sparkle:version>
+            <sparkle:shortVersionString>0.1.9</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<p>Spruce now opens at login and never runs twice. The pill stays open when it appears under your
+  pointer, long names show in full, and Redact catches more API keys.</p>
+]]></description>
+            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.9/Spruce.zip" length="2001051" type="application/octet-stream" sparkle:edSignature="TwFIBsvt2dojlsuVCaM+20IlsF815Z8aoG12JgAhVgyQVp0Z3aIxQTUbFTYfbyopc8dkf0deHLHvB/em/pXqAw=="/>
+        </item>
+        <item>
             <title>0.1.8</title>
             <pubDate>Tue, 03 Nov 2026 14:50:48 +0100</pubDate>
             <sparkle:version>10</sparkle:version>
@@ -23,17 +35,6 @@
             <description><![CDATA[<p>Redact sensitive text in one click. Search inside your screenshots in the Manager. Copied and dragged screenshots arrive with their new name. Title Case keeps spellings like GitHub and iPhone. On Macs with a notch, the pill grows out of the notch.</p>
 ]]></description>
             <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.7/Spruce.zip" length="1996130" type="application/octet-stream" sparkle:edSignature="PGKNT0h8g++M6ceUBMBDn+plQZZYsYzE1JqL680F9iwDuq/21nKCr/r6AjC21gCJih+Zk6/n+AVPFqLSMOABDQ=="/>
-        </item>
-        <item>
-            <title>0.1.6</title>
-            <pubDate>Tue, 03 Nov 2026 12:01:11 +0100</pubDate>
-            <sparkle:version>8</sparkle:version>
-            <sparkle:shortVersionString>0.1.6</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<p>Scroll capture lines up reliably in real apps (sidebars, hover highlights, repeating layouts) and crops to just the scrolling area.</p>
-]]></description>
-            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.6/Spruce.zip" length="1918800" type="application/octet-stream" sparkle:edSignature="vdYivGxcRQh2p6HKvtZqRVMpf4eRCuLaG8uY9mIeVnH5oNEPe39GKDo7mNTD9UHtyYRBi2NJJJJO9IbloIdxDA=="/>
         </item>
     </channel>
 </rss>
