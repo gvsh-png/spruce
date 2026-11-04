@@ -1,8 +1,16 @@
+import AppKit
 import SwiftUI
 
 @main
 struct ScreenshotRenamerApp: App {
     @State private var state = AppState()
+
+    init() {
+        // One Spruce at a time: two would each show a pill and rename every screenshot twice.
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+            .filter { $0 != NSRunningApplication.current }
+        if !others.isEmpty { exit(0) }
+    }
 
     var body: some Scene {
         MenuBarExtra {
