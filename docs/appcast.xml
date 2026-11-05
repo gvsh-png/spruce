@@ -3,6 +3,17 @@
     <channel>
         <title>Spruce</title>
         <item>
+            <title>0.1.10</title>
+            <pubDate>Thu, 05 Nov 2026 14:55:28 +0100</pubDate>
+            <sparkle:version>12</sparkle:version>
+            <sparkle:shortVersionString>0.1.10</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<p>Open at Login is in the menu and respects System Settings. Update alerts come to the front.</p>
+]]></description>
+            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.10/Spruce.zip" length="2002607" type="application/octet-stream" sparkle:edSignature="Qcmj1FLIrR+a+aLn+WK2f20GxxQhl7dIhG+SVscanlFW/R0TCk7AVpTjcPOoxu+n9ELDAIqtrONyK4eSa+T8CQ=="/>
+        </item>
+        <item>
             <title>0.1.9</title>
             <pubDate>Wed, 04 Nov 2026 12:44:04 +0100</pubDate>
             <sparkle:version>11</sparkle:version>
@@ -24,17 +35,6 @@
             <description><![CDATA[<p>The pill now shows over fullscreen apps, games, videos and browsers.</p>
 ]]></description>
             <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.8/Spruce.zip" length="1996126" type="application/octet-stream" sparkle:edSignature="hKu7VlaPfxpqFJasMjCWYoD00ZSysG7BK6WiP01Nc2ins/OgLjIeuVIMNz87hu+8v1GLlqgmvBPHDYcDmT2WAQ=="/>
-        </item>
-        <item>
-            <title>0.1.7</title>
-            <pubDate>Tue, 03 Nov 2026 14:27:08 +0100</pubDate>
-            <sparkle:version>9</sparkle:version>
-            <sparkle:shortVersionString>0.1.7</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<p>Redact sensitive text in one click. Search inside your screenshots in the Manager. Copied and dragged screenshots arrive with their new name. Title Case keeps spellings like GitHub and iPhone. On Macs with a notch, the pill grows out of the notch.</p>
-]]></description>
-            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.7/Spruce.zip" length="1996130" type="application/octet-stream" sparkle:edSignature="PGKNT0h8g++M6ceUBMBDn+plQZZYsYzE1JqL680F9iwDuq/21nKCr/r6AjC21gCJih+Zk6/n+AVPFqLSMOABDQ=="/>
         </item>
     </channel>
 </rss>
