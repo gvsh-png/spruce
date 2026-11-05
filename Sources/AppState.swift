@@ -105,7 +105,15 @@ final class AppState {
 
     init() {
         prefs = Preferences.load()
-        Self.syncLoginItem(prefs.openAtLogin)
+        // Turn on once; after that respect the switch in System Settings → Login Items too.
+        if Bundle.main.bundleURL.path.hasPrefix("/Applications/") {
+            if UserDefaults.standard.bool(forKey: "loginItemSet") {
+                prefs.openAtLogin = SMAppService.mainApp.status == .enabled
+            } else {
+                UserDefaults.standard.set(true, forKey: "loginItemSet")
+                Self.syncLoginItem(prefs.openAtLogin)
+            }
+        }
         watcher.onScreenshot = { [weak self] url in self?.screenshotArrived(url) }
         restartWatcher()
         Notifier.setUp(self)

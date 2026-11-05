@@ -68,6 +68,7 @@ struct MenuView: View {
             Text(problem)
         }
         Toggle("Rename New Screenshots", isOn: $state.prefs.watching)
+        Toggle("Open at Login", isOn: $state.prefs.openAtLogin)
 
         Divider()
 
