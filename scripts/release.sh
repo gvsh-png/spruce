@@ -48,6 +48,7 @@ build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast \
   -o docs/appcast.xml "$OUT"
 
 git add project.yml docs/appcast.xml
+: ${COMMIT_TRAILER="Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"}
 git commit -q -m "Release $VERSION${COMMIT_TRAILER:+
 
 $COMMIT_TRAILER}"
