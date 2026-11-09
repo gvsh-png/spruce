@@ -65,6 +65,7 @@ final class AppState {
             if prefs.watching != oldValue.watching || prefs.watchFolders != oldValue.watchFolders
                 || prefs.prefixList != oldValue.prefixList { restartWatcher() }
             if prefs.openAtLogin != oldValue.openAtLogin { Self.syncLoginItem(prefs.openAtLogin) }
+            if prefs.showPanel != oldValue.showPanel { Self.syncAppleThumbnail(pill: prefs.showPanel) }
         }
     }
     var history: [HistoryEntry] = History.load()
@@ -114,6 +115,7 @@ final class AppState {
                 Self.syncLoginItem(prefs.openAtLogin)
             }
         }
+        Self.syncAppleThumbnail(pill: prefs.showPanel)
         watcher.onScreenshot = { [weak self] url in self?.screenshotArrived(url) }
         restartWatcher()
         Notifier.setUp(self)
@@ -563,6 +565,14 @@ final class AppState {
     }
 
     // MARK: Actions
+
+    /// The pill replaces Apple's floating thumbnail in the bottom-right corner, so hide that one while
+    /// the pill is on (it also delays the save by ~5 s). Turning the pill off brings it back.
+    static func syncAppleThumbnail(pill: Bool) {
+        let domain = "com.apple.screencapture" as CFString
+        CFPreferencesSetAppValue("show-thumbnail" as CFString, (!pill) as CFBoolean, domain)
+        CFPreferencesAppSynchronize(domain)
+    }
 
     /// Adds or removes Spruce as a login item (System Settings → General → Login Items).
     static func syncLoginItem(_ on: Bool) {
