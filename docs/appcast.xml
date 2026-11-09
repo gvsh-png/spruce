@@ -3,6 +3,17 @@
     <channel>
         <title>Spruce</title>
         <item>
+            <title>0.1.11</title>
+            <pubDate>Mon, 09 Nov 2026 08:31:40 +0100</pubDate>
+            <sparkle:version>13</sparkle:version>
+            <sparkle:shortVersionString>0.1.11</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<p>Apple's corner thumbnail is hidden while the pill is on, so screenshots save faster.</p>
+]]></description>
+            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.11/Spruce.zip" length="2002760" type="application/octet-stream" sparkle:edSignature="Zft0l+Q10m2Mrh9GdrBIOPZHPCSCNhSrp4tSdL7mAo8My6k/mMN770aKrynG9Dg0+r8IZbGk91jV6WEEYCpoBw=="/>
+        </item>
+        <item>
             <title>0.1.10</title>
             <pubDate>Thu, 05 Nov 2026 14:55:28 +0100</pubDate>
             <sparkle:version>12</sparkle:version>
@@ -24,17 +35,6 @@
   pointer, long names show in full, and Redact catches more API keys.</p>
 ]]></description>
             <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.9/Spruce.zip" length="2001051" type="application/octet-stream" sparkle:edSignature="TwFIBsvt2dojlsuVCaM+20IlsF815Z8aoG12JgAhVgyQVp0Z3aIxQTUbFTYfbyopc8dkf0deHLHvB/em/pXqAw=="/>
-        </item>
-        <item>
-            <title>0.1.8</title>
-            <pubDate>Tue, 03 Nov 2026 14:50:48 +0100</pubDate>
-            <sparkle:version>10</sparkle:version>
-            <sparkle:shortVersionString>0.1.8</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<p>The pill now shows over fullscreen apps, games, videos and browsers.</p>
-]]></description>
-            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.8/Spruce.zip" length="1996126" type="application/octet-stream" sparkle:edSignature="hKu7VlaPfxpqFJasMjCWYoD00ZSysG7BK6WiP01Nc2ins/OgLjIeuVIMNz87hu+8v1GLlqgmvBPHDYcDmT2WAQ=="/>
         </item>
     </channel>
 </rss>
