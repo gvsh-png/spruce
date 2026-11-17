@@ -8,6 +8,7 @@ final class CapturePanel {
     static let shared = CapturePanel()
     private var panel: NSPanel?
     private weak var state: AppState?
+    private var clickMonitor: Any?
 
     /// Room for the widest, tallest (hovered) island.
     static let width: CGFloat = 440
@@ -25,10 +26,19 @@ final class CapturePanel {
         panel.setFrame(NSRect(x: screen.frame.midX - Self.width / 2, y: screen.frame.maxY - height,
                               width: Self.width, height: height), display: true)
         panel.orderFrontRegardless()
+        // A click in another app means you've moved on: close now instead of making you wait it out.
+        // Global monitors only see clicks that go to other apps, so clicks on the pill itself still work.
+        if clickMonitor == nil {
+            clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { _ in
+                Task { @MainActor in CapturePanel.shared.state?.finishCapture() }
+            }
+        }
     }
 
     /// Lets the island shrink back into the notch before the window goes away.
     func hide() {
+        if let clickMonitor { NSEvent.removeMonitor(clickMonitor) }
+        clickMonitor = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
             guard let self, self.state?.capture == nil else { return }
             self.panel?.orderOut(nil)
