@@ -3,6 +3,17 @@
     <channel>
         <title>Spruce</title>
         <item>
+            <title>0.1.12</title>
+            <pubDate>Tue, 17 Nov 2026 14:24:32 +0100</pubDate>
+            <sparkle:version>14</sparkle:version>
+            <sparkle:shortVersionString>0.1.12</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<p>Clicking in another app now closes the pill right away, so it never blocks the top of your screen.</p>
+]]></description>
+            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.12/Spruce.zip" length="2003879" type="application/octet-stream" sparkle:edSignature="zwulHSpnZweV58Q8ZQHAioB5Kr1an458QVKJi5Y7RDp6GCt1tvNTzUkiu90JmuEwKlHq16KEzqwRzuP8ZfIyBA=="/>
+        </item>
+        <item>
             <title>0.1.11</title>
             <pubDate>Mon, 09 Nov 2026 08:31:40 +0100</pubDate>
             <sparkle:version>13</sparkle:version>
@@ -23,18 +34,6 @@
             <description><![CDATA[<p>Open at Login is in the menu and respects System Settings. Update alerts come to the front.</p>
 ]]></description>
             <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.10/Spruce.zip" length="2002607" type="application/octet-stream" sparkle:edSignature="Qcmj1FLIrR+a+aLn+WK2f20GxxQhl7dIhG+SVscanlFW/R0TCk7AVpTjcPOoxu+n9ELDAIqtrONyK4eSa+T8CQ=="/>
-        </item>
-        <item>
-            <title>0.1.9</title>
-            <pubDate>Wed, 04 Nov 2026 12:44:04 +0100</pubDate>
-            <sparkle:version>11</sparkle:version>
-            <sparkle:shortVersionString>0.1.9</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<p>Spruce now opens at login and never runs twice. The pill stays open when it appears under your
-  pointer, long names show in full, and Redact catches more API keys.</p>
-]]></description>
-            <enclosure url="https://github.com/gvsh-png/spruce/releases/download/v0.1.9/Spruce.zip" length="2001051" type="application/octet-stream" sparkle:edSignature="TwFIBsvt2dojlsuVCaM+20IlsF815Z8aoG12JgAhVgyQVp0Z3aIxQTUbFTYfbyopc8dkf0deHLHvB/em/pXqAw=="/>
         </item>
     </channel>
 </rss>
